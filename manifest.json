@@ -1,6 +1,6 @@
 {
-  "name": "Financial Dashboard Pro",
-  "short_name": "StonksApp",
+  "name": "Personal Financial Dashboard",
+  "short_name": "PFD",
   "description": "La tua dashboard finanziaria personale",
   "start_url": "./index.html",
   "display": "standalone",
