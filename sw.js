@@ -2,7 +2,7 @@ const CACHE_NAME = 'dashboard-stonks-v1';
 const urlsToCache = [
   './index.html',
   './manifest.json',
-  './icon.svg'
+  './logoApp.png'
 ];
 
 // Installazione e salvataggio dei file nella cache locale
