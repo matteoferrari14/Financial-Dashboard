@@ -2,9 +2,10 @@ const CACHE_NAME = 'dashboard-stonks-v1';
 const urlsToCache = [
   './index.html',
   './manifest.json',
-  './logoApp.png'
+  './icon.svg'
 ];
 
+// Installazione e salvataggio dei file nella cache locale
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -14,11 +15,12 @@ self.addEventListener('install', event => {
   );
 });
 
+// Intercettazione delle richieste per farla funzionare offline
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        return response || fill(event.request);
+        return response || fetch(event.request);
       })
   );
 });
