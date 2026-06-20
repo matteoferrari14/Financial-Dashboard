@@ -664,8 +664,12 @@
             try {
                 let fileContent = e.target.result.trim();
                 
-                if (fileContent.includes("window.dbFinanziarioLocale") || fileContent.includes("dbFinanziarioLocale")) {
-                    fileContent = fileContent.replace(/^(.*?=\s*)/, '').replace(/;$/, '').trim();
+                // COMPATIBILITÀ AVANZATA: Estrae chirurgicamente solo il contenuto tra la prima { e l'ultima }
+                const primaGraffa = fileContent.indexOf('{');
+                const ultimaGraffa = fileContent.lastIndexOf('}');
+                
+                if (primaGraffa !== -1 && ultimaGraffa !== -1) {
+                    fileContent = fileContent.substring(primaGraffa, ultimaGraffa + 1);
                 }
 
                 const parsed = JSON.parse(fileContent);
@@ -683,7 +687,7 @@
         };
         reader.readAsText(file);
     }
-
+    
     window.addEventListener('DOMContentLoaded', () => {
         renderizzaSezioneConfigurazione();
     });
