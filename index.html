@@ -597,6 +597,7 @@
     });
 
     function esportaFileCompleto() {
+        // Esporta in formato JSON pulito standard
         const blob = new Blob([JSON.stringify(dbRadice, null, 4)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -610,17 +611,31 @@
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result);
+                let fileContent = e.target.result.trim();
+                
+                // COMPATIBILITÀ VECCHIO FILE dati.js: 
+                // Se rileva l'assegnazione alla variabile window, estrae solo il contenuto JSON
+                if (fileContent.includes("window.dbFinanziarioLocale") || fileContent.includes("dbFinanziarioLocale")) {
+                    // Rimuove l'intestazione JavaScript iniziale e il punto e virgola finale
+                    fileContent = fileContent.replace(/^(.*?=\s*)/, '').replace(/;$/, '').trim();
+                }
+
+                const parsed = JSON.parse(fileContent);
                 if (parsed.configurazioneTarget && parsed.storicoMesi) {
                     dbRadice = parsed;
                     salvaNelLocalStorage();
                     renderizzaSezioneConfigurazione();
-                    alert("Backup importato con successo!");
-                } else { alert("Formato file non valido."); }
-            } catch(err) { alert("Errore nella lettura del file di backup."); }
+                    alert("Dati storici importati con successo!");
+                } else { 
+                    alert("Formato file non valido. Assicurati che contenga configurazioneTarget e storicoMesi."); 
+                }
+            } catch(err) { 
+                alert("Errore nella lettura del file di backup: verifica che la sintassi sia corretta."); 
+            }
         };
         reader.readAsText(file);
     }
+
 
     // Caricamento asincrono iniziale
     window.addEventListener('DOMContentLoaded', () => {
