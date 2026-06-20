@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dashboard-stonks-v1';
+const CACHE_NAME = 'dashboard-stonks-v2';
 const urlsToCache = [
   './index.html',
   './manifest.json',
