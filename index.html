@@ -35,9 +35,12 @@
             color: var(--text-main); 
             margin: 0; 
             padding: 12px; 
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
         
-        .container { max-width: 1600px; margin: 0 auto; }
+        .container { max-width: 1600px; margin: 0 auto; flex: 1; width: 100%; }
         
         header { 
             border-bottom: 1px solid var(--border); 
@@ -82,7 +85,7 @@
         .card { background: var(--card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
         h3 { margin-top: 0; margin-bottom: 14px; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* Righe dinamiche ottimizzate: l'input del valore ha più spazio su mobile */
+        /* Righe dinamiche ottimizzate */
         .dinamic-row { display: grid; grid-template-columns: 1.2fr 0.8fr auto; gap: 6px; margin-bottom: 8px; align-items: center; }
         .dinamic-row input { padding: 8px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
         
@@ -105,7 +108,7 @@
         .kpi-line { display: flex; justify-content: space-between; padding: 4px 0; }
         .kpi-divider { height: 1px; background: var(--border); margin: 6px 0; }
         
-        /* Contenitore tabella responsive per evitare lo sfascio del layout mobile */
+        /* Contenitore tabella responsive */
         .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 16px; border-radius: 8px; border: 1px solid var(--border); }
         table { width: 100%; border-collapse: collapse; min-width: 600px; }
         th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: left; }
@@ -120,7 +123,7 @@
         .badge-down { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
         .section-sub { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px 0; font-weight: bold; border-left: 2px solid var(--accent-blue); padding-left: 6px; }
 
-        /* Filtro barra responsive per il tab dettagli */
+        /* Filtro barra responsive */
         .filter-bar { display: flex; flex-direction: column; gap: 10px; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
         .filter-bar label { margin: 0; font-weight: 600; display: flex; flex-direction: column; gap: 4px; color: var(--text-main); width: 100%; }
         .filter-bar input { padding: 8px; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
@@ -129,7 +132,16 @@
         .avg-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
         .avg-item:last-child { border-bottom: none; }
 
-        /* Media Queries per Tablet e Desktop (Sopra i 768px il layout diventa multi-colonna) */
+        footer {
+            text-align: center;
+            padding: 16px 0 8px 0;
+            color: var(--text-muted);
+            font-size: 12px;
+            border-top: 1px solid var(--border);
+            margin-top: 24px;
+        }
+
+        /* Media Queries per Tablet e Desktop */
         @media (min-width: 768px) {
             body { padding: 24px; }
             header { flex-direction: row; justify-content: space-between; align-items: flex-end; padding-bottom: 16px; margin-bottom: 24px; }
@@ -154,7 +166,7 @@
     <header>
         <div>
             <h1>Personal Financial Dashboard</h1>
-            <p style="color: var(--text-muted); margin-top: 4px;">PWA Mobile-First con sincronizzazione automatica dati.js</p>
+            <p style="color: var(--text-muted); margin-top: 4px;">PWA Mobile-First con sincronizzazione automatica dati.json</p>
         </div>
         <div class="tabs-nav">
             <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
@@ -229,9 +241,9 @@
                     </table>
                 </div>
                 <div>
-                    <button class="btn-export" onclick="esportaFileCompleto()">⬇️ Esporta File Backup (dati.js)</button>
+                    <button class="btn-export" onclick="esportaFileCompleto()">⬇️ Esporta File Backup (dati.json)</button>
                     <input type="file" id="import-file" accept=".json,.js" style="display:none;" onchange="importaFileCompleto(this)">
-                    <button class="btn-import" onclick="document.getElementById('import-file').click()">⬆️ Importa File Backup (dati.js)</button>
+                    <button class="btn-import" onclick="document.getElementById('import-file').click()">⬆️ Importa File Backup (dati.json / dati.js)</button>
                 </div>
             </div>
         </div>
@@ -287,6 +299,10 @@
         </div>
     </div>
 </div>
+
+<footer>
+    <span>Personal Financial Dashboard &bull; Version <b>1.2.0</b></span>
+</footer>
 
 <script>
     const dbDefaultVuoto = {
@@ -647,15 +663,20 @@
         generaCampiFormNuovoMese();
     });
 
+    // ESPORTAZIONE JSON PURO (Sicuro anche su Mobile)
     function esportaFileCompleto() {
-        const contenutoJs = "window.dbFinanziarioLocale = " + JSON.stringify(dbRadice, null, 4) + ";";
-        const blob = new Blob([contenutoJs], { type: 'application/javascript' });
+        const contenutoJson = JSON.stringify(dbRadice, null, 4);
+        const blob = new Blob([contenutoJson], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'dati.js';
+        a.download = 'dati.json';
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
     }
 
+    // IMPORTAZIONE COMPATIBILE (.json e vecchi .js)
     function importaFileCompleto(input) {
         const file = input.files[0];
         if (!file) return;
@@ -664,7 +685,7 @@
             try {
                 let fileContent = e.target.result.trim();
                 
-                // COMPATIBILITÀ AVANZATA: Estrae chirurgicamente solo il contenuto tra la prima { e l'ultima }
+                // Estrae chirurgicamente il JSON anche se il file era un vecchio dati.js con window.dbFinanziarioLocale
                 const primaGraffa = fileContent.indexOf('{');
                 const ultimaGraffa = fileContent.lastIndexOf('}');
                 
@@ -677,12 +698,12 @@
                     dbRadice = parsed;
                     salvaNelLocalStorage();
                     renderizzaSezioneConfigurazione();
-                    alert("Archivio dati.js caricato e importato con successo!");
+                    alert("Archivio dati importato con successo!");
                 } else { 
-                    alert("Formato file non valido. Assicurati che sia un file dati.js o JSON corretto."); 
+                    alert("Formato file non valido. Assicurati che sia un file di backup dati.json o dati.js corretto."); 
                 }
             } catch(err) { 
-                alert("Errore nella lettura del file: verifica che il file dati.js non sia danneggiato."); 
+                alert("Errore nella lettura del file: verifica che il file non sia danneggiato."); 
             }
         };
         reader.readAsText(file);
