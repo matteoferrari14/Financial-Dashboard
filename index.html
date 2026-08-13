@@ -11,12 +11,33 @@
     <link rel="icon" href="logoApp.png" type="image/png">
     <link rel="apple-touch-icon" href="logoApp.png">
     <script>
-        // Registrazione del Service Worker per il funzionamento Offline
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker registrato con successo.', reg))
+                .then(reg => {
+                    console.log('Service Worker registrato con successo.', reg);
+                    
+                    // Controlla se c'è un aggiornamento del Service Worker
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // C'è un aggiornamento: ricarica la pagina automaticamente
+                                window.location.reload();
+                            }
+                        });
+                    });
+                })
                 .catch(err => console.error('Errore registrazione Service Worker:', err));
+            });
+    
+            // Garantisce che il ricaricamento avvenga non appena il nuovo SW prende il controllo
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) {
+                    refreshing = true;
+                    window.location.reload();
+                }
             });
         }
     </script>
