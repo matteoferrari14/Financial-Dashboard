@@ -507,8 +507,7 @@
     function renderizzaInterfaccia() {
         dbRadice.storicoMesi.sort((a, b) => new Date(a.data) - new Date(b.data));
         const tbody = document.getElementById('tabella-body');
-		// Esempio nel ciclo di rendering delle righe della tabella dello storico:
-		const eFittizio = mese.fittizio ? `<span style="font-size:0.8em; color:#d97706; font-style:italic;" title="${mese.nota}"> ⚠️ (Interpolato)</span>` : '';
+
         if(!tbody) return;
         tbody.innerHTML = '';
         
