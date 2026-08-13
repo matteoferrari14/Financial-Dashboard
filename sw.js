@@ -46,3 +46,10 @@ self.addEventListener('fetch', event => {
       })
   );
 });
+
+// Gestore messaggi per inviare la versione alla pagina web
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: CACHE_NAME.replace('pfd-cache-', '') });
+  }
+});
