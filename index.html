@@ -507,6 +507,8 @@
     function renderizzaInterfaccia() {
         dbRadice.storicoMesi.sort((a, b) => new Date(a.data) - new Date(b.data));
         const tbody = document.getElementById('tabella-body');
+		// Esempio nel ciclo di rendering delle righe della tabella dello storico:
+		const eFittizio = mese.fittizio ? `<span style="font-size:0.8em; color:#d97706; font-style:italic;" title="${mese.nota}"> ⚠️ (Interpolato)</span>` : '';
         if(!tbody) return;
         tbody.innerHTML = '';
         
@@ -534,16 +536,20 @@
             const scostamento = deltaReale - risparmioTeoricoTargetGlobale;
             labels.push(item.data); datasetNetto.push(capNetto); datasetInvestimenti.push(totInvestimentiMese); datasetBanca.push(totBancaMese); datasetDebitiTotali.push(totDebitiMese);
 
+			const eFittizio = item.fittizio 
+				? `<span style="font-size:0.8em; color:#d97706; font-style:italic;" title="${item.nota}"> ⚠️ (Interpolato)</span>` 
+				: '';
+
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><b>${item.data}</b></td>
-                <td class="text-amber">${formatEuro(totBancaMese)}</td>
-                <td class="text-blue">${formatEuro(totInvestimentiMese)}</td>
-                <td class="text-red">${formatEuro(totDebitiMese)}</td>
-                <td class="text-green">${formatEuro(capNetto)}</td>
-                <td>${index === 0 ? '-' : formatEuro(deltaReale)}</td>
-                <td>${index === 0 ? '-' : `<span class="badge ${scostamento >= 0 ? 'badge-up' : 'badge-down'}">${scostamento >= 0 ? '+' : ''}${formatEuro(scostamento)}</span>`}</td>
-                <td>
+			<td><b>${item.data}</b>${eFittizio}</td>
+				<td class="text-amber">${formatEuro(totBancaMese)}</td>
+				<td class="text-blue">${formatEuro(totInvestimentiMese)}</td>
+				<td class="text-red">${formatEuro(totDebitiMese)}</td>
+				<td class="text-green">${formatEuro(capNetto)}</td>
+				<td>${index === 0 ? '-' : formatEuro(deltaReale)}</td>
+				<td>${index === 0 ? '-' : `<span class="badge ${scostamento >= 0 ? 'badge-up' : 'badge-down'}">${scostamento >= 0 ? '+' : ''}${formatEuro(scostamento)}</span>`}</td>
+				<td>
                     <div class="btn-action-group">
                         <button class="btn-edit" onclick="caricaRecordPerModifica('${item.data}')">Modifica</button>
                         <button class="btn-delete" onclick="eliminaRecord('${item.data}')">Elimina</button>
@@ -725,23 +731,110 @@
         }
     }
 
-    document.getElementById('registro-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const d = document.getElementById('form-data').value;
-        let subBanca = {}; document.querySelectorAll('.input-banca-valore').forEach(input => { subBanca[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
-        let subInvestimenti = {}; document.querySelectorAll('.input-investimenti-valore').forEach(input => { subInvestimenti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
-        let subDebiti = {}; document.querySelectorAll('.input-debito-valore').forEach(input => { subDebiti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
+	document.getElementById('registro-form').addEventListener('submit', function(e) {
+		e.preventDefault();
+		const dataNuovaStr = document.getElementById('form-data').value;
+		const dataNuova = new Date(dataNuovaStr);
 
-        const nuovaMisurazione = { data: d, delta: 0, bancaDettaglio: subBanca, investimentiDettaglio: subInvestimenti, debiti: subDebiti };
-        const idx = dbRadice.storicoMesi.findIndex(i => i.data === d);
-        if (idx !== -1) dbRadice.storicoMesi[idx] = nuovaMisurazione; else dbRadice.storicoMesi.push(nuovaMisurazione);
-        
-        salvaNelLocalStorage();
-        renderizzaInterfaccia();
-        annullaModifica(); // Ripristina il form allo stato normale
-        generaCampiFormNuovoMese();
-    });
+		let subBanca = {}; document.querySelectorAll('.input-banca-valore').forEach(input => { subBanca[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
+		let subInvestimenti = {}; document.querySelectorAll('.input-investimenti-valore').forEach(input => { subInvestimenti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
+		let subDebiti = {}; document.querySelectorAll('.input-debito-valore').forEach(input => { subDebiti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
 
+		const nuovaMisurazione = { data: dataNuovaStr, delta: 0, bancaDettaglio: subBanca, investimentiDettaglio: subInvestimenti, debiti: subDebiti };
+
+		// Ordina temporaneamente per trovare l'ultimo record precedente
+		const storicoOrdinato = [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data));
+		const recordPrecedenti = storicoOrdinato.filter(r => new Date(r.data) < dataNuova);
+
+		if (recordPrecedenti.length > 0) {
+			const ultimoRecord = recordPrecedenti[recordPrecedenti.length - 1];
+			const dataUltimo = new Date(ultimoRecord.data);
+			
+			// Calcolo della differenza in giorni
+			const diffTempo = dataNuova - dataUltimo;
+			const diffGiorni = Math.floor(diffTempo / (1000 * 60 * 60 * 24));
+
+			if (diffGiorni > 50) {
+				const inserisciFittizi = confirm(
+					`Sono trascorsi ${diffGiorni} giorni dall'ultima misurazione (${ultimoRecord.data}).\n\n` +
+					`Vuoi inserire automaticamente i mesi fittizi intermedi per normalizzare i calcoli della performance mensile?`
+				);
+
+				if (inserisciFittizi) {
+					generaMesiFittizi(ultimoRecord, nuovaMisurazione);
+				}
+			}
+		}
+
+		// Inserisci o aggiorna la nuova misurazione
+		const idx = dbRadice.storicoMesi.findIndex(i => i.data === dataNuovaStr);
+		if (idx !== -1) dbRadice.storicoMesi[idx] = nuovaMisurazione; 
+		else dbRadice.storicoMesi.push(nuovaMisurazione);
+		
+		salvaNelLocalStorage();
+		renderizzaInterfaccia();
+		annullaModifica();
+		generaCampiFormNuovoMese();
+	});
+
+	// Funzione ausiliaria per generare i mesi intermedi
+	function generaMesiFittizi(recordInizio, recordFine) {
+		const dInizio = new Date(recordInizio.data);
+		const dFine = new Date(recordFine.data);
+
+		let corrente = new Date(dInizio.getFullYear(), dInizio.getMonth() + 1, 1);
+		const mesiIntermedi = [];
+
+		while (corrente < new Date(dFine.getFullYear(), dFine.getMonth(), 1)) {
+			const dataStr = corrente.toISOString().split('T')[0];
+			mesiIntermedi.push(dataStr);
+			corrente.setMonth(corrente.getMonth() + 1);
+		}
+
+		if (mesiIntermedi.length === 0) return;
+
+		const totalePassi = mesiIntermedi.length + 1;
+
+		mesiIntermedi.forEach((dataMese, idx) => {
+			const fattore = (idx + 1) / totalePassi; // Calcolo dell'interpolazione lineare
+
+			let subBanca = {};
+			dbRadice.configurazioneTarget.bancaNomi.forEach(item => {
+				const vInizio = (recordInizio.bancaDettaglio && recordInizio.bancaDettaglio[item.nome]) || 0;
+				const vFine = (recordFine.bancaDettaglio && recordFine.bancaDettaglio[item.nome]) || 0;
+				subBanca[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
+			});
+
+			let subInvestimenti = {};
+			dbRadice.configurazioneTarget.investimentiNomi.forEach(item => {
+				const vInizio = (recordInizio.investimentiDettaglio && recordInizio.investimentiDettaglio[item.nome]) || 0;
+				const vFine = (recordFine.investimentiDettaglio && recordFine.investimentiDettaglio[item.nome]) || 0;
+				subInvestimenti[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
+			});
+
+			let subDebiti = {};
+			dbRadice.configurazioneTarget.debitiNomi.forEach(item => {
+				const vInizio = (recordInizio.debiti && recordInizio.debiti[item.nome]) || 0;
+				const vFine = (recordFine.debiti && recordFine.debiti[item.nome]) || 0;
+				subDebiti[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
+			});
+
+			const recordFittizio = {
+				data: dataMese,
+				delta: 0,
+				bancaDettaglio: subBanca,
+				investimentiDettaglio: subInvestimenti,
+				debiti: subDebiti,
+				fittizio: true,
+				nota: "Dato ricavato tramite interpolazione"
+			};
+
+			const idxEsistente = dbRadice.storicoMesi.findIndex(i => i.data === dataMese);
+			if (idxEsistente === -1) {
+				dbRadice.storicoMesi.push(recordFittizio);
+			}
+		});
+	}
     function esportaFileCompleto() {
         const contenutoJson = JSON.stringify(dbRadice, null, 4);
         const blob = new Blob([contenutoJson], { type: 'application/json' });
