@@ -838,28 +838,39 @@
     function importaFileCompleto(input) {
         const file = input.files[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = function(e) {
             try {
-                let fileContent = e.target.result.trim();
-                const primaGraffa = fileContent.indexOf('{');
-                const ultimaGraffa = fileContent.lastIndexOf('}');
+                // Legge il testo puro del JSON
+                const fileContent = e.target.result.trim();
                 
-                if (primaGraffa !== -1 && ultimaGraffa !== -1) {
-                    fileContent = fileContent.substring(primaGraffa, ultimaGraffa + 1);
-                }
-
+                // Parsing diretto del JSON
                 const parsed = JSON.parse(fileContent);
-                if (parsed.configurazioneTarget && parsed.storicoMesi) {
-                    dbRadice = parsed;
+
+                // Verifica che la struttura minima sia valida
+                if (parsed && typeof parsed === 'object' && (parsed.configurazioneTarget || parsed.storicoMesi)) {
+                    dbRadice = {
+                        configurazioneTarget: parsed.configurazioneTarget || dbDefaultVuoto.configurazioneTarget,
+                        storicoMesi: parsed.storicoMesi || []
+                    };
                     salvaNelLocalStorage();
                     renderizzaSezioneConfigurazione();
-                    alert("Archivio dati importato con successo!");
+                    
+                    // Se la scheda dettagli è aperta, aggiorna anche quella
+                    if (document.getElementById('tab-dettagli').classList.contains('active')) {
+                        renderizzaGraficiDettaglio();
+                    }
+
+                    alert("File dati.json importato con successo!");
+                    // Resetta l'input file per permettere di ricaricare lo stesso file se necessario
+                    input.value = '';
                 } else { 
-                    alert("Formato file non valido. Assicurati che sia un file di backup dati.json o dati.js corretto."); 
+                    alert("Struttura JSON non valida. Il file deve contenere 'configurazioneTarget' o 'storicoMesi'."); 
                 }
             } catch(err) { 
-                alert("Errore nella lettura del file: verifica che il file non sia danneggiato."); 
+                console.error("Errore durante l'importazione JSON:", err);
+                alert("Impossibile leggere il file: assicurati che sia un JSON valido."); 
             }
         };
         reader.readAsText(file);
