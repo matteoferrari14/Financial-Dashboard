@@ -1,12 +1,18 @@
-const CACHE_NAME = 'dashboard-stonks-v2';
+// 1. Incrementa la versione per forzare l'aggiornamento
+const CACHE_NAME = 'pfd-cache-v1.2.1'; 
+
+// 2. Includiamo anche Chart.js per il supporto offline completo
 const urlsToCache = [
+  './',
   './index.html',
   './manifest.json',
-  './logoApp.png'
+  './logoApp.png',
+  'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
-// Installazione e salvataggio dei file nella cache locale
+// Installazione: forza l'attivazione immediata del nuovo SW
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Non aspetta la chiusura dell'app
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -15,7 +21,23 @@ self.addEventListener('install', event => {
   );
 });
 
-// Intercettazione delle richieste per farla funzionare offline
+// Attivazione: elimina le vecchie cache (es. v1.2.0) e prende il controllo
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cache => {
+          if (cache !== CACHE_NAME) {
+            console.log('Eliminazione vecchia cache:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim()) // Applica le modifiche subito
+  );
+});
+
+// Intercettazione delle richieste offline
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
