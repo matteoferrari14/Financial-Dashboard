@@ -17,12 +17,13 @@
                 .then(reg => {
                     console.log('Service Worker registrato con successo.', reg);
                     
-                    // Controlla se c'è un aggiornamento del Service Worker
+                    // Richiede la versione al Service Worker non appena è attivo
+                    richiediVersioneSW();
+
                     reg.addEventListener('updatefound', () => {
                         const newWorker = reg.installing;
                         newWorker.addEventListener('statechange', () => {
                             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                // C'è un aggiornamento: ricarica la pagina automaticamente
                                 window.location.reload();
                             }
                         });
@@ -30,8 +31,7 @@
                 })
                 .catch(err => console.error('Errore registrazione Service Worker:', err));
             });
-    
-            // Garantisce che il ricaricamento avvenga non appena il nuovo SW prende il controllo
+
             let refreshing = false;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (!refreshing) {
@@ -39,6 +39,23 @@
                     window.location.reload();
                 }
             });
+        }
+
+        // Funzione per comunicare con il SW e farsi mandare la versione della Cache
+        function richiediVersioneSW() {
+            if (navigator.serviceWorker.controller) {
+                const messageChannel = new MessageChannel();
+                messageChannel.port1.onmessage = (event) => {
+                    if (event.data && event.data.version) {
+                        const el = document.getElementById('sw-version-display');
+                        if (el) el.innerText = event.data.version;
+                    }
+                };
+                navigator.serviceWorker.controller.postMessage(
+                    { type: 'GET_VERSION' }, 
+                    [messageChannel.port2]
+                );
+            }
         }
     </script>
 
@@ -75,7 +92,6 @@
         h1 { margin: 0; font-size: 22px; text-align: center; }
         header p { margin: 0; text-align: center; font-size: 13px; }
         
-        /* Navigazione Tab ottimizzata per il touch su mobile */
         .tabs-nav { display: flex; gap: 8px; width: 100%; }
         .tab-btn { 
             flex: 1; 
@@ -95,7 +111,6 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* Layout Mobile-First (Una colonna per impostazione predefinita) */
         .grid-2-top, .grid-2 { 
             display: grid; 
             grid-template-columns: 1fr; 
@@ -106,7 +121,6 @@
         .card { background: var(--card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
         h3 { margin-top: 0; margin-bottom: 14px; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* Righe dinamiche ottimizzate */
         .dinamic-row { display: grid; grid-template-columns: 1.2fr 0.8fr auto; gap: 6px; margin-bottom: 8px; align-items: center; }
         .dinamic-row input { padding: 8px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
         
@@ -123,15 +137,16 @@
         .btn-export { background: var(--accent-green); margin-top: 12px; width: 100%; padding: 14px; border:none; border-radius:6px; color:#fff; font-weight:600; cursor:pointer; font-size: 13px;}
         .btn-import { background: rgba(148, 163, 184, 0.15); border: 1px solid var(--border); margin-top: 8px; width: 100%; padding: 12px; border-radius:6px; color: var(--text-main); font-weight:600; cursor:pointer; font-size: 13px;}
         
+        .btn-action-group { display: flex; gap: 6px; }
+        .btn-edit { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
         .btn-delete { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
         
         .kpi-summary-box { background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; margin-top: 10px; }
         .kpi-line { display: flex; justify-content: space-between; padding: 4px 0; }
         .kpi-divider { height: 1px; background: var(--border); margin: 6px 0; }
         
-        /* Contenitore tabella responsive */
         .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 16px; border-radius: 8px; border: 1px solid var(--border); }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        table { width: 100%; border-collapse: collapse; min-width: 650px; }
         th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: left; }
         th { background: #1e293b; color: var(--text-muted); font-weight: 600; }
         
@@ -144,7 +159,6 @@
         .badge-down { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
         .section-sub { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px 0; font-weight: bold; border-left: 2px solid var(--accent-blue); padding-left: 6px; }
 
-        /* Filtro barra responsive */
         .filter-bar { display: flex; flex-direction: column; gap: 10px; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
         .filter-bar label { margin: 0; font-weight: 600; display: flex; flex-direction: column; gap: 4px; color: var(--text-main); width: 100%; }
         .filter-bar input { padding: 8px; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
@@ -162,7 +176,6 @@
             margin-top: 24px;
         }
 
-        /* Media Queries per Tablet e Desktop */
         @media (min-width: 768px) {
             body { padding: 24px; }
             header { flex-direction: row; justify-content: space-between; align-items: flex-end; padding-bottom: 16px; margin-bottom: 24px; }
@@ -234,14 +247,15 @@
             </div>
 
             <div class="card" style="max-height: 500px; overflow-y: auto;">
-                <h3>2. Nuova Misurazione</h3>
+                <h3 id="form-title">2. Nuova Misurazione</h3>
                 <form id="registro-form">
                     <div class="form-group">
                         <label>Data Misurazione</label>
                         <input type="date" id="form-data" class="main-form" required>
                     </div>
                     <div id="blocco-dinamico-form"></div>
-                    <button type="submit" class="main-btn">Aggiungi in Tabella</button>
+                    <button type="submit" id="btn-submit-form" class="main-btn">Aggiungi in Tabella</button>
+                    <button type="button" id="btn-cancel-edit" class="btn-import" style="display:none; margin-top:8px;" onclick="annullaModifica()">Annulla Modifica</button>
                 </form>
             </div>
         </div>
@@ -322,7 +336,7 @@
 </div>
 
 <footer>
-    <span>Personal Financial Dashboard &bull; Version <b>1.2.0</b></span>
+    <span>Personal Financial Dashboard &bull; Version <b id="sw-version-display">v1.2.1</b></span>
 </footer>
 
 <script>
@@ -529,7 +543,12 @@
                 <td class="text-green">${formatEuro(capNetto)}</td>
                 <td>${index === 0 ? '-' : formatEuro(deltaReale)}</td>
                 <td>${index === 0 ? '-' : `<span class="badge ${scostamento >= 0 ? 'badge-up' : 'badge-down'}">${scostamento >= 0 ? '+' : ''}${formatEuro(scostamento)}</span>`}</td>
-                <td><button class="btn-delete" onclick="eliminaRecord('${item.data}')">Elimina</button></td>
+                <td>
+                    <div class="btn-action-group">
+                        <button class="btn-edit" onclick="caricaRecordPerModifica('${item.data}')">Modifica</button>
+                        <button class="btn-delete" onclick="eliminaRecord('${item.data}')">Elimina</button>
+                    </div>
+                </td>
             `;
             tbody.appendChild(row);
         });
@@ -562,6 +581,45 @@
                 });
             }
         }
+    }
+
+    // CARICA DATO VECCHIO NEL FORM PER MODIFICA
+    function caricaRecordPerModifica(dataM) {
+        const record = dbRadice.storicoMesi.find(i => i.data === dataM);
+        if (!record) return;
+
+        document.getElementById('form-data').value = record.data;
+        document.getElementById('form-data').readOnly = true; // Impediamo di cambiare la data in modifica
+
+        // Popola i campi
+        document.querySelectorAll('.input-banca-valore').forEach(input => {
+            const nome = input.getAttribute('data-nome');
+            input.value = record.bancaDettaglio && record.bancaDettaglio[nome] !== undefined ? record.bancaDettaglio[nome] : 0;
+        });
+        document.querySelectorAll('.input-investimenti-valore').forEach(input => {
+            const nome = input.getAttribute('data-nome');
+            input.value = record.investimentiDettaglio && record.investimentiDettaglio[nome] !== undefined ? record.investimentiDettaglio[nome] : 0;
+        });
+        document.querySelectorAll('.input-debito-valore').forEach(input => {
+            const nome = input.getAttribute('data-nome');
+            input.value = record.debiti && record.debiti[nome] !== undefined ? record.debiti[nome] : 0;
+        });
+
+        // Modifica l'interfaccia form
+        document.getElementById('form-title').innerText = "Modifica Misurazione (" + record.data + ")";
+        document.getElementById('btn-submit-form').innerText = "Salva Modifiche";
+        document.getElementById('btn-cancel-edit').style.display = "block";
+
+        // Scroll al form su mobile
+        document.getElementById('registro-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function annullaModifica() {
+        document.getElementById('registro-form').reset();
+        document.getElementById('form-data').readOnly = false;
+        document.getElementById('form-title').innerText = "2. Nuova Misurazione";
+        document.getElementById('btn-submit-form').innerText = "Aggiungi in Tabella";
+        document.getElementById('btn-cancel-edit').style.display = "none";
     }
 
     function eliminaRecord(dataM) {
@@ -680,11 +738,10 @@
         
         salvaNelLocalStorage();
         renderizzaInterfaccia();
-        document.getElementById('registro-form').reset();
+        annullaModifica(); // Ripristina il form allo stato normale
         generaCampiFormNuovoMese();
     });
 
-    // ESPORTAZIONE JSON PURO (Sicuro anche su Mobile)
     function esportaFileCompleto() {
         const contenutoJson = JSON.stringify(dbRadice, null, 4);
         const blob = new Blob([contenutoJson], { type: 'application/json' });
@@ -697,7 +754,6 @@
         URL.revokeObjectURL(a.href);
     }
 
-    // IMPORTAZIONE COMPATIBILE (.json e vecchi .js)
     function importaFileCompleto(input) {
         const file = input.files[0];
         if (!file) return;
@@ -705,8 +761,6 @@
         reader.onload = function(e) {
             try {
                 let fileContent = e.target.result.trim();
-                
-                // Estrae chirurgicamente il JSON anche se il file era un vecchio dati.js con window.dbFinanziarioLocale
                 const primaGraffa = fileContent.indexOf('{');
                 const ultimaGraffa = fileContent.lastIndexOf('}');
                 
@@ -732,6 +786,7 @@
     
     window.addEventListener('DOMContentLoaded', () => {
         renderizzaSezioneConfigurazione();
+        setTimeout(richiediVersioneSW, 500);
     });
 </script>
 </body>
