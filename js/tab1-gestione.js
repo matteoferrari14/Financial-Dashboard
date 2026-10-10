@@ -1,5 +1,4 @@
 function renderizzaConfigurazioni() {
-    // Carica selettori parametri emergenza
     document.getElementById('config-mesi-emergenza').value = dbRadice.configurazioneTarget.mesiEmergenza || 6;
     document.getElementById('config-soglia-extra').value = dbRadice.configurazioneTarget.sogliaExtraLiquidita || 5000;
 
@@ -10,7 +9,7 @@ function renderizzaConfigurazioni() {
             const div = document.createElement('div');
             div.className = `config-item ${item.attivo ? '' : 'inactive'}`;
             div.innerHTML = `
-                <span>${item.nome}</span>
+                <span>${item.nome} ${item.importo !== undefined ? `: <strong>${item.importo} €</strong>` : ''}</span>
                 <div>
                     <span class="toggle-switch ${item.attivo ? 'toggle-active' : 'toggle-inactive'}" 
                           onclick="toggleItemActive('${key}', ${index})">
@@ -26,30 +25,21 @@ function renderizzaConfigurazioni() {
     renderList('list-bancaNomi', 'bancaNomi');
     renderList('list-investimentiNomi', 'investimentiNomi');
     renderList('list-debitiNomi', 'debitiNomi');
+    renderList('list-target-redditi', 'redditi');
+    renderList('list-target-spese', 'spese');
 
-    const renderTargetList = (containerId, key) => {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        (dbRadice.configurazioneTarget[key] || []).forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'config-item';
-            div.innerHTML = `
-                <span>${item.nome}: <strong>${item.importo} €</strong></span>
-                <button style="width:auto; padding:2px 6px; margin:0;" class="btn-danger" onclick="deleteTargetItem('${key}', ${index})">✕</button>
-            `;
-            container.appendChild(div);
-        });
-    };
-
-    renderTargetList('list-target-redditi', 'redditi');
-    renderTargetList('list-target-spese', 'spese');
+    // Inserisce il footer versione in calce alla pagina
+    aggiornaFooterVersione();
 }
 
-function salvaParametriEmergenza() {
-    dbRadice.configurazioneTarget.mesiEmergenza = parseInt(document.getElementById('config-mesi-emergenza').value);
-    dbRadice.configurazioneTarget.sogliaExtraLiquidita = parseFloat(document.getElementById('config-soglia-extra').value) || 0;
-    salvaNelLocalStorage();
-    renderizzaTutto();
+function aggiornaFooterVersione() {
+    document.querySelectorAll('.app-footer').forEach(f => f.remove());
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        const footer = document.createElement('div');
+        footer.className = 'app-footer';
+        footer.innerText = 'Personal Finance Dashboard v1.3.1';
+        tab.appendChild(footer);
+    });
 }
 
 function toggleItemActive(key, index) {
@@ -81,17 +71,11 @@ function addTargetItem(key) {
     const nomeIn = document.getElementById(`new-${key.slice(0, -1)}-nome`);
     const impIn = document.getElementById(`new-${key.slice(0, -1)}-importo`);
     if (nomeIn.value.trim() && impIn.value) {
-        dbRadice.configurazioneTarget[key].push({ nome: nomeIn.value.trim(), importo: parseFloat(impIn.value) });
+        dbRadice.configurazioneTarget[key].push({ nome: nomeIn.value.trim(), importo: parseFloat(impIn.value), attivo: true });
         nomeIn.value = ''; impIn.value = '';
         salvaNelLocalStorage();
         renderizzaTutto();
     }
-}
-
-function deleteTargetItem(key, index) {
-    dbRadice.configurazioneTarget[key].splice(index, 1);
-    salvaNelLocalStorage();
-    renderizzaTutto();
 }
 
 function renderizzaFormCampi() {

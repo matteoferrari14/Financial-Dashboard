@@ -1,5 +1,7 @@
 let chartPatrimonioInstance = null;
 let chartAssetAllocationInstance = null;
+let chartInvestimentiStoricoInstance = null;
+let chartDebitiStoricoInstance = null;
 
 function aggiornaFiltriCondivisi(tipo, valore) {
     const start1 = document.getElementById('filter-date-start');
@@ -49,13 +51,12 @@ function renderizzaVisualizzazioni() {
         document.getElementById('kpi-investimenti').innerText = totI.toLocaleString() + " €";
         document.getElementById('kpi-debiti').innerText = totD.toLocaleString() + " €";
 
-        // VERIFICA FONDO D'EMERGENZA & SURPLUS
         valutaStatoLiquidita(totB);
-
         renderizzaGraficoTorta(totB, totI);
     }
 
     renderizzaGraficoPatrimonio(dati);
+    renderizzaGraficoInvestimentiDebitiStorico(dati);
 
     if (typeof renderizzaGraficiDettaglio === 'function') {
         renderizzaGraficiDettaglio(dati);
@@ -66,7 +67,9 @@ function valutaStatoLiquidita(liquiditaAttuale) {
     const banner = document.getElementById('banner-liquidita-status');
     if (!banner) return;
 
-    const speseTargetTotali = (dbRadice.configurazioneTarget.spese || []).reduce((a,b) => a + (b.importo || 0), 0);
+    const speseTargetTotali = (dbRadice.configurazioneTarget.spese || [])
+        .filter(s => s.attivo)
+        .reduce((a,b) => a + (b.importo || 0), 0);
     const mesi = dbRadice.configurazioneTarget.mesiEmergenza || 6;
     const fondoTarget = speseTargetTotali * mesi;
     const sogliaExtra = dbRadice.configurazioneTarget.sogliaExtraLiquidita || 5000;
@@ -79,10 +82,10 @@ function valutaStatoLiquidita(liquiditaAttuale) {
     } else if (liquiditaAttuale > tettoMax) {
         const surplus = liquiditaAttuale - tettoMax;
         banner.className = "banner-alert banner-info";
-        banner.innerHTML = `🚀 <strong>Surplus di Liquidità Rilevato:</strong> Hai un'eccedenza di <strong>${surplus.toLocaleString()} €</strong> oltre il Fondo d'Emergenza (${fondoTarget.toLocaleString()} €) e la soglia di tolleranza. Si consiglia di allocarli negli investimenti (Tab 4).`;
+        banner.innerHTML = `🚀 <strong>Surplus di Liquidità Rilevato:</strong> Hai un'eccedenza di <strong>${surplus.toLocaleString()} €</strong> oltre il Fondo d'Emergenza (${fondoTarget.toLocaleString()} €). Si consiglia di allocarli negli investimenti (Tab 4).`;
     } else {
         banner.className = "banner-alert banner-success";
-        banner.innerHTML = `🟢 <strong>Liquidità in Equilibrio:</strong> Fondo d'Emergenza (${fondoTarget.toLocaleString()} € per ${mesi} mesi di spese) interamente coperto. Nessun accumulo in eccesso.`;
+        banner.innerHTML = `🟢 <strong>Liquidità in Equilibrio:</strong> Fondo d'Emergenza (${fondoTarget.toLocaleString()} € per ${mesi} mesi di spese) interamente coperto.`;
     }
 }
 
@@ -138,5 +141,35 @@ function renderizzaGraficoPatrimonio(dati) {
             },
             plugins: { legend: { labels: { color: '#f8fafc' } } }
         }
+    });
+}
+
+function renderizzaGraficoInvestimentiDebitiStorico(dati) {
+    const ctxInv = document.getElementById('chartInvestimentiStorico').getContext('2d');
+    const ctxDeb = document.getElementById('chartDebitiStorico').getContext('2d');
+    
+    if (chartInvestimentiStoricoInstance) chartInvestimentiStoricoInstance.destroy();
+    if (chartDebitiStoricoInstance) chartDebitiStoricoInstance.destroy();
+
+    const labels = dati.map(d => d.data);
+    const totInv = dati.map(d => Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0));
+    const totDeb = dati.map(d => Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0));
+
+    chartInvestimentiStoricoInstance = new Chart(ctxInv, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ label: 'Investimenti Totali (€)', data: totInv, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+    });
+
+    chartDebitiStoricoInstance = new Chart(ctxDeb, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ label: 'Debiti Totali (€)', data: totDeb, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
     });
 }

@@ -1,4 +1,3 @@
-// DATABASE STRUTTURA LOCALE GLOBALE
 let dbRadice = {
     configurazioneTarget: {
         redditi: [],
@@ -11,7 +10,7 @@ let dbRadice = {
         sogliaExtraLiquidita: 5000
     },
     storicoMesi: [],
-    dettaglioAssets: [] // Per Tab 4
+    dettaglioAssets: []
 };
 
 window.onload = function() {
@@ -35,11 +34,11 @@ function caricaDaLocalStorage() {
 }
 
 function normalizzaConfigurazione() {
-    const keys = ['bancaNomi', 'investimentiNomi', 'debitiNomi'];
+    const keys = ['bancaNomi', 'investimentiNomi', 'debitiNomi', 'spese', 'redditi'];
     keys.forEach(k => {
         if (dbRadice.configurazioneTarget[k]) {
             dbRadice.configurazioneTarget[k] = dbRadice.configurazioneTarget[k].map(item => {
-                if (typeof item === 'string') return { nome: item, attivo: true };
+                if (typeof item === 'string') return { nome: item, importo: 0, attivo: true };
                 if (item.attivo === undefined) item.attivo = true;
                 return item;
             });

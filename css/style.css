@@ -130,17 +130,20 @@ th { color: var(--text-muted); }
 }
 .controls-bar > div { flex: 1; min-width: 180px; }
 
-.banner-alert {
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    font-weight: bold;
-}
+.banner-alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
 .banner-warning { background-color: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-danger); color: var(--accent-danger); }
 .banner-success { background-color: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-success); color: var(--accent-success); }
 .banner-info { background-color: rgba(59, 130, 246, 0.15); border: 1px solid var(--accent-primary); color: var(--accent-primary); }
 
-/* Utility Classes */
+.app-footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 30px;
+}
+
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
 .text-primary { color: var(--accent-primary); }
 .text-success { color: var(--accent-success); }

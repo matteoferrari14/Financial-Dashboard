@@ -6,25 +6,24 @@ function salvaAssetSingolo() {
     const isin = document.getElementById('asset-isin').value.trim();
     const targetPct = parseFloat(document.getElementById('asset-target-pct').value) || 0;
     const benchmark = document.getElementById('asset-benchmark').value;
-    const versato = parseFloat(document.getElementById('asset-versato').value) || 0;
-    const attuale = parseFloat(document.getElementById('asset-attuale').value) || 0;
+    const quotaPac = parseFloat(document.getElementById('asset-quota-pac').value) || 0;
+    const valorePortafoglio = parseFloat(document.getElementById('asset-valore-portafoglio').value) || 0;
 
     if (!nome) { alert("Inserisci il nome dell'asset."); return; }
 
     const nuovoAsset = {
         id: Date.now(),
-        nome, isin, targetPct, benchmark, versato, attuale
+        nome, isin, targetPct, benchmark, quotaPac, valorePortafoglio
     };
 
     dbRadice.dettaglioAssets.push(nuovoAsset);
     salvaNelLocalStorage();
 
-    // Reset Form
     document.getElementById('asset-nome').value = '';
     document.getElementById('asset-isin').value = '';
     document.getElementById('asset-target-pct').value = '';
-    document.getElementById('asset-versato').value = '';
-    document.getElementById('asset-attuale').value = '';
+    document.getElementById('asset-quota-pac').value = '';
+    document.getElementById('asset-valore-portafoglio').value = '';
 
     renderizzaRebalancingTab();
 }
@@ -43,13 +42,12 @@ function renderizzaRebalancingTab() {
     if(!tbody) return;
     tbody.innerHTML = '';
 
-    const valoreTotalePortafoglio = assets.reduce((a,b) => a + (b.attuale || 0), 0);
+    const valoreTotalePortafoglio = assets.reduce((a,b) => a + (b.valorePortafoglio || 0), 0);
 
     assets.forEach((item, idx) => {
-        const pesoAttualePct = valoreTotalePortafoglio > 0 ? ((item.attuale / valoreTotalePortafoglio) * 100) : 0;
+        const pesoAttualePct = valoreTotalePortafoglio > 0 ? ((item.valorePortafoglio / valoreTotalePortafoglio) * 100) : 0;
         const valoreTargetEuro = (valoreTotalePortafoglio * (item.targetPct / 100));
-        const riallocazioneEuro = valoreTargetEuro - item.attuale;
-        const gainNetto = item.attuale - item.versato;
+        const riallocazioneEuro = valoreTargetEuro - item.valorePortafoglio;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -57,15 +55,12 @@ function renderizzaRebalancingTab() {
                 <strong>${item.nome}</strong>
                 ${item.isin ? `<br><small class="text-muted">${item.isin}</small>` : ''}
             </td>
-            <td>${item.attuale.toLocaleString()} €</td>
-            <td>${item.versato.toLocaleString()} €</td>
-            <td style="font-weight:bold; color: ${gainNetto >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">
-                ${gainNetto >= 0 ? '+' : ''}${gainNetto.toLocaleString()} €
-            </td>
+            <td>${item.quotaPac.toLocaleString()} € / mese</td>
+            <td>${item.valorePortafoglio.toLocaleString()} €</td>
             <td>${pesoAttualePct.toFixed(1)} %</td>
             <td>${item.targetPct.toFixed(1)} %</td>
             <td style="font-weight:bold; color: ${riallocazioneEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">
-                ${riallocazioneEuro >= 0 ? 'Acquista ' : 'Vendi '}${Math.abs(Math.round(riallocazioneEuro)).toLocaleString()} €
+                ${riallocazioneEuro >= 0 ? 'Aggiungi ' : 'Riduci '}${Math.abs(Math.round(riallocazioneEuro)).toLocaleString()} €
             </td>
             <td>
                 <button class="btn-danger w-auto" style="padding:4px 8px; margin:0;" onclick="eliminaAssetSingolo(${idx})">🗑️</button>
@@ -75,18 +70,17 @@ function renderizzaRebalancingTab() {
     });
 
     renderizzaGraficoGeografico(assets);
-    renderizzaGraficoPerformanceAssets(assets);
+    renderizzaGraficoQuotaPac(assets);
 }
 
 function renderizzaGraficoGeografico(assets) {
     const ctx = document.getElementById('chartGeoBreakdown').getContext('2d');
     if (chartGeoBreakdownInstance) chartGeoBreakdownInstance.destroy();
 
-    // Mappatura Macro-Insiemi (Approccio 3)
     let geoTotali = { "USA / Nord America": 0, "Europa": 0, "Mercati Emergenti": 0, "Asia / Pacifico": 0, "Italia": 0 };
 
     assets.forEach(a => {
-        const val = a.attuale || 0;
+        const val = a.valorePortafoglio || 0;
         if (a.benchmark === 'WORLD') {
             geoTotali["USA / Nord America"] += val * 0.60;
             geoTotali["Europa"] += val * 0.15;
@@ -120,22 +114,18 @@ function renderizzaGraficoGeografico(assets) {
     });
 }
 
-function renderizzaGraficoPerformanceAssets(assets) {
+function renderizzaGraficoQuotaPac(assets) {
     const ctx = document.getElementById('chartPerformanceAssets').getContext('2d');
     if (chartPerformanceAssetsInstance) chartPerformanceAssetsInstance.destroy();
 
     const labels = assets.map(a => a.nome);
-    const versati = assets.map(a => a.versato);
-    const attuali = assets.map(a => a.attuale);
+    const quotePac = assets.map(a => a.quotaPac);
 
     chartPerformanceAssetsInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
-            datasets: [
-                { label: 'Capitale Versato (€)', data: versati, backgroundColor: '#334155' },
-                { label: 'Valore Attuale (€)', data: attuali, backgroundColor: '#3b82f6' }
-            ]
+            datasets: [{ label: 'Quota PAC Mensile (€/mese)', data: quotePac, backgroundColor: '#3b82f6' }]
         },
         options: {
             responsive: true,

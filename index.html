@@ -1,143 +1,105 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Finance Dashboard</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e293b">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-
-<div class="container">
-    <header>
-        <h1>PFD - Personal Finance Dashboard</h1>
-    </header>
-
-    <!-- NAVIGATION TABS -->
+    <!-- Menu di Navigazione Tab -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('tab-gestione')">1. Gestione & Inserimento</button>
-        <button class="tab-btn" onclick="switchTab('tab-dashboard')">2. Dashboard Patrimoniale</button>
-        <button class="tab-btn" onclick="switchTab('tab-dettagli')">3. Analisi Dettagliata</button>
+        <button class="tab-btn active" onclick="switchTab('tab-gestione')">1. Gestione & Config</button>
+        <button class="tab-btn" onclick="switchTab('tab-dashboard')">2. Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('tab-dettagli')">3. Vista Dettagliata</button>
         <button class="tab-btn" onclick="switchTab('tab-rebalancing')">4. Asset & Rebalancing</button>
     </div>
 
-    <!-- TAB 1: GESTIONE & INSERIMENTO -->
+    <!-- TAB 1: GESTIONE & CONFIGURAZIONE -->
     <div id="tab-gestione" class="tab-content active">
-        <div class="card">
-            <h2>Parametri Fondo d'Emergenza & Liquidità</h2>
-            <div class="grid-2">
-                <div>
-                    <label>Copertura Fondo d'Emergenza (Mesi Spese Target):</label>
-                    <select id="config-mesi-emergenza" onchange="salvaParametriEmergenza()">
-                        <option value="3">3 Mesi</option>
-                        <option value="4">4 Mesi</option>
-                        <option value="5">5 Mesi</option>
-                        <option value="6" selected>6 Mesi</option>
-                        <option value="7">7 Mesi</option>
-                        <option value="8">8 Mesi</option>
-                        <option value="9">9 Mesi</option>
-                        <option value="10">10 Mesi</option>
-                    </select>
+        <div class="grid-2">
+            <div class="card">
+                <h2>Impostazioni Globali</h2>
+                <label>Mesi di Emergenza Target (Fondo)</label>
+                <input type="number" id="config-mesi-emergenza" onchange="dbRadice.configurazioneTarget.mesiEmergenza = parseInt(this.value); salvaNelLocalStorage(); renderizzaVisualizzazioni();">
+                
+                <label>Soglia Extra Liquidità (€)</label>
+                <input type="number" id="config-soglia-extra" onchange="dbRadice.configurazioneTarget.sogliaExtraLiquidita = parseFloat(this.value); salvaNelLocalStorage(); renderizzaVisualizzazioni();">
+            </div>
+
+            <div class="card">
+                <h2>Configurazione Voci</h2>
+                
+                <label>Conti / Banche</label>
+                <div id="list-bancaNomi" style="max-height:120px; overflow-y:auto; margin-bottom:10px;"></div>
+                <div class="flex-gap">
+                    <input type="text" id="new-bancaNome" placeholder="Nuovo conto...">
+                    <button class="btn-primary w-auto" onclick="addConfigItem('bancaNomi')">+</button>
                 </div>
-                <div>
-                    <label>Soglia Max Liquidità Extra (€ oltre il Fondo):</label>
-                    <input type="number" id="config-soglia-extra" placeholder="es. 5000" onchange="salvaParametriEmergenza()">
+
+                <label class="mt-15">Investimenti</label>
+                <div id="list-investimentiNomi" style="max-height:120px; overflow-y:auto; margin-bottom:10px;"></div>
+                <div class="flex-gap">
+                    <input type="text" id="new-investimentiNome" placeholder="Nuovo investimento...">
+                    <button class="btn-primary w-auto" onclick="addConfigItem('investimentiNomi')">+</button>
+                </div>
+
+                <label class="mt-15">Debiti</label>
+                <div id="list-debitiNomi" style="max-height:120px; overflow-y:auto; margin-bottom:10px;"></div>
+                <div class="flex-gap">
+                    <input type="text" id="new-debitiNome" placeholder="Nuovo debito...">
+                    <button class="btn-primary w-auto" onclick="addConfigItem('debitiNomi')">+</button>
+                </div>
+
+                <label class="mt-15">Redditi Target Mensili</label>
+                <div id="list-target-redditi" style="max-height:100px; overflow-y:auto; margin-bottom:10px;"></div>
+                <div class="flex-gap">
+                    <input type="text" id="new-reddito-nome" placeholder="Nome entrata...">
+                    <input type="number" id="new-reddito-importo" placeholder="Importo €...">
+                    <button class="btn-primary w-auto" onclick="addTargetItem('redditi')">+</button>
+                </div>
+
+                <label class="mt-15">Spese Target Mensili (Disattivabili)</label>
+                <div id="list-target-spese" style="max-height:100px; overflow-y:auto; margin-bottom:10px;"></div>
+                <div class="flex-gap">
+                    <input type="text" id="new-spesa-nome" placeholder="Nome spesa (es. Netflix)...">
+                    <input type="number" id="new-spesa-importo" placeholder="Importo €...">
+                    <button class="btn-primary w-auto" onclick="addTargetItem('spese')">+</button>
                 </div>
             </div>
         </div>
 
+        <!-- Inserimento Mese -->
         <div class="card">
-            <h2>Configurazione Voci & Target</h2>
-            <p class="text-muted">Gestisci le voci attive. Disattivandole (Soft Delete) non compariranno nei nuovi form senza perdere lo storico.</p>
-
-            <div class="grid-2">
-                <div>
-                    <h3>Conti / Banche</h3>
-                    <div id="list-bancaNomi"></div>
-                    <div class="flex-gap">
-                        <input type="text" id="new-bancaNome" placeholder="Nuova Banca">
-                        <button class="btn-primary w-auto" onclick="addConfigItem('bancaNomi')">+</button>
-                    </div>
-
-                    <h3>Investimenti</h3>
-                    <div id="list-investimentiNomi"></div>
-                    <div class="flex-gap">
-                        <input type="text" id="new-investimentiNome" placeholder="Nuovo Investimento">
-                        <button class="btn-primary w-auto" onclick="addConfigItem('investimentiNomi')">+</button>
-                    </div>
-
-                    <h3>Debiti / Finanziamenti</h3>
-                    <div id="list-debitiNomi"></div>
-                    <div class="flex-gap">
-                        <input type="text" id="new-debitiNome" placeholder="Nuovo Debito">
-                        <button class="btn-primary w-auto" onclick="addConfigItem('debitiNomi')">+</button>
-                    </div>
-                </div>
-
-                <div>
-                    <h3>Budget Redditi Target</h3>
-                    <div id="list-target-redditi"></div>
-                    <div class="flex-gap">
-                        <input type="text" id="new-reddito-nome" placeholder="Nome">
-                        <input type="number" id="new-reddito-importo" placeholder="Importo €">
-                        <button class="btn-primary w-auto" onclick="addTargetItem('redditi')">+</button>
-                    </div>
-
-                    <h3>Budget Spese Target</h3>
-                    <div id="list-target-spese"></div>
-                    <div class="flex-gap">
-                        <input type="text" id="new-spesa-nome" placeholder="Nome">
-                        <input type="number" id="new-spesa-importo" placeholder="Importo €">
-                        <button class="btn-primary w-auto" onclick="addTargetItem('spese')">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="flex-between">
-                <h2 id="form-title">Inserimento Nuovo Mese</h2>
-                <button class="btn-secondary w-auto" onclick="copiaUltimoMese()">📋 Copia da ultimo mese</button>
-            </div>
-            
+            <h2 id="form-title">Inserimento Nuovo Mese</h2>
             <input type="hidden" id="edit-index" value="-1">
-            <div style="max-width: 250px;">
-                <label>Data Misurazione</label>
-                <input type="date" id="input-data">
+            <div class="grid-2">
+                <div>
+                    <label>Data Riferimento</label>
+                    <input type="date" id="input-data">
+                </div>
+                <div style="display:flex; align-items:flex-end;">
+                    <button class="btn-secondary" onclick="copiaUltimoMese()">📋 Copia Valori Ultimo Mese</button>
+                </div>
             </div>
 
-            <div class="grid-2 mt-15">
-                <div>
-                    <h3>Saldi Banche / Liquidità</h3>
-                    <div id="form-fields-banche"></div>
-                    <h3>Saldi Investimenti</h3>
-                    <div id="form-fields-investimenti"></div>
-                </div>
-                <div>
-                    <h3>Saldi Debiti / Passività</h3>
-                    <div id="form-fields-debiti"></div>
-                </div>
-            </div>
+            <h3 class="text-primary mt-15">Conti e Liquidità</h3>
+            <div id="form-fields-banche" class="grid-4"></div>
+
+            <h3 class="text-primary mt-15">Investimenti</h3>
+            <div id="form-fields-investimenti" class="grid-4"></div>
+
+            <h3 class="text-primary mt-15">Debiti</h3>
+            <div id="form-fields-debiti" class="grid-4"></div>
 
             <div class="flex-gap mt-15">
-                <button class="btn-success" id="btn-save-month" onclick="salvaMese()">Salva Misurazione</button>
-                <button class="btn-secondary" id="btn-cancel-edit" style="display: none;" onclick="annullaModifica()">Annulla Modifica</button>
+                <button class="btn-primary" id="btn-save-month" onclick="salvaMese()">Salva Misurazione</button>
+                <button class="btn-secondary" id="btn-cancel-edit" style="display:none;" onclick="annullaModifica()">Annulla</button>
             </div>
         </div>
 
+        <!-- Tabella Storico -->
         <div class="card">
-            <h2>Storico Misurazioni Salvate</h2>
-            <div style="overflow-x: auto;">
+            <h2>Storico Misurazioni</h2>
+            <div style="overflow-x:auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Data</th>
-                            <th>Liquidità Tot.</th>
-                            <th>Investimenti Tot.</th>
-                            <th>Debiti Tot.</th>
+                            <th>Banche</th>
+                            <th>Investimenti</th>
+                            <th>Debiti</th>
                             <th>Patrimonio Netto</th>
                             <th>Azioni</th>
                         </tr>
@@ -146,21 +108,11 @@
                 </table>
             </div>
         </div>
-
-        <div class="card">
-            <h2>Importazione / Esportazione File Dati</h2>
-            <div class="flex-gap">
-                <button class="btn-primary" onclick="esportaFileDati()">📥 Scarica dati.js</button>
-                <input type="file" id="file-import" accept=".js,.json" style="display: none;" onchange="importaFileCompleto(this)">
-                <button class="btn-secondary" onclick="document.getElementById('file-import').click()">📤 Importa dati.js</button>
-            </div>
-        </div>
     </div>
 
-    <!-- TAB 2: DASHBOARD PATRIMONIALE -->
+    <!-- TAB 2: DASHBOARD -->
     <div id="tab-dashboard" class="tab-content">
-        <div id="banner-liquidita-status"></div>
-
+        <!-- Barra Filtri Condivisi -->
         <div class="controls-bar">
             <div>
                 <label>Data Inizio</label>
@@ -171,40 +123,46 @@
                 <input type="date" id="filter-date-end" onchange="aggiornaFiltriCondivisi('end', this.value)">
             </div>
             <div>
-                <label>Modalità Calcolo Metriche</label>
+                <label>Visualizzazione Metrica</label>
                 <select id="metric-mode" onchange="aggiornaFiltriCondivisi('mode', this.value)">
-                    <option value="valore">Media Valore Assoluto (€)</option>
-                    <option value="mom">Media Variazione Mensile (MoM €/mese)</option>
-                    <option value="delta">Delta Totale Periodo (Inizio vs Fine €)</option>
+                    <option value="valore">Valore Assoluto (€)</option>
+                    <option value="mom">Variazione Media Mensile (MoM)</option>
+                    <option value="delta">Delta Totale Periodo</option>
                 </select>
             </div>
-            <div style="align-self: flex-end;">
-                <button class="btn-secondary" onclick="resetFiltriDate()">Reset Filtri</button>
+            <div style="display:flex; align-items:flex-end;">
+                <button class="btn-secondary" onclick="resetFiltriDate()">Ripristina Filtri</button>
             </div>
         </div>
 
-        <div class="grid-4">
-            <div class="card">
+        <!-- Banner Stato Liquidità / Fondo Emergenza -->
+        <div id="banner-liquidita-status" class="banner-alert banner-info">
+            Analisi fondo d'emergenza in corso...
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid-4" style="margin-bottom: 20px;">
+            <div class="card" style="margin:0;">
                 <div class="kpi-title">Patrimonio Netto</div>
-                <div class="kpi-value text-primary" id="kpi-netto">0 €</div>
+                <div id="kpi-netto" class="kpi-value text-primary">0 €</div>
             </div>
-            <div class="card">
+            <div class="card" style="margin:0;">
                 <div class="kpi-title">Liquidità Totale</div>
-                <div class="kpi-value text-success" id="kpi-liquidita">0 €</div>
+                <div id="kpi-liquidita" class="kpi-value text-success">0 €</div>
             </div>
-            <div class="card">
+            <div class="card" style="margin:0;">
                 <div class="kpi-title">Investimenti Totali</div>
-                <div class="kpi-value text-warning" id="kpi-investimenti">0 €</div>
+                <div id="kpi-investimenti" class="kpi-value text-warning">0 €</div>
             </div>
-            <div class="card">
+            <div class="card" style="margin:0;">
                 <div class="kpi-title">Debiti Totali</div>
-                <div class="kpi-value text-danger" id="kpi-debiti">0 €</div>
+                <div id="kpi-debiti" class="kpi-value text-danger">0 €</div>
             </div>
         </div>
 
         <div class="grid-2">
             <div class="card">
-                <h2>Andamento Patrimoniale Storico</h2>
+                <h2>Evoluzione Patrimonio Netto</h2>
                 <div class="chart-container"><canvas id="chartPatrimonio"></canvas></div>
             </div>
             <div class="card">
@@ -212,10 +170,22 @@
                 <div class="chart-container"><canvas id="chartAssetAllocation"></canvas></div>
             </div>
         </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h2>Andamento Investimenti Storico</h2>
+                <div class="chart-container"><canvas id="chartInvestimentiStorico"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>Andamento Debiti Storico</h2>
+                <div class="chart-container"><canvas id="chartDebitiStorico"></canvas></div>
+            </div>
+        </div>
     </div>
 
-    <!-- TAB 3: ANALISI DETTAGLIATA -->
+    <!-- TAB 3: VISTA DETTAGLIATA -->
     <div id="tab-dettagli" class="tab-content">
+        <!-- Barra Filtri Condivisi Dettaglio -->
         <div class="controls-bar">
             <div>
                 <label>Data Inizio</label>
@@ -223,85 +193,90 @@
             </div>
             <div>
                 <label>Data Fine</label>
-                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('start', this.value)">
+                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('end', this.value)">
             </div>
             <div>
-                <label>Modalità Calcolo Metriche</label>
+                <label>Metrica Dettaglio</label>
                 <select id="metric-mode-det" onchange="aggiornaFiltriCondivisi('mode', this.value)">
-                    <option value="valore">Media Valore Assoluto (€)</option>
-                    <option value="mom">Media Variazione Mensile (MoM €/mese)</option>
-                    <option value="delta">Delta Totale Periodo (Inizio vs Fine €)</option>
+                    <option value="valore">Valore Assoluto (€)</option>
+                    <option value="mom">Variazione Media Mensile (MoM)</option>
+                    <option value="delta">Delta Totale Periodo</option>
                 </select>
             </div>
-            <div style="align-self: flex-end;">
-                <button class="btn-secondary" onclick="resetFiltriDate()">Reset Filtri</button>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h2>Dettaglio Conti / Banche</h2>
+                <div class="chart-container"><canvas id="chartDettaglioBanche"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>Dettaglio Investimenti</h2>
+                <div class="chart-container"><canvas id="chartDettaglioInvestimenti"></canvas></div>
             </div>
         </div>
 
         <div class="card">
-            <h2>Dettaglio Singole Banche / Liquidità</h2>
-            <div class="chart-container"><canvas id="chartDettaglioBanche"></canvas></div>
-        </div>
-        <div class="card">
-            <h2>Dettaglio Singoli Investimenti</h2>
-            <div class="chart-container"><canvas id="chartDettaglioInvestimenti"></canvas></div>
-        </div>
-        <div class="card">
-            <h2>Dettaglio Singoli Debiti</h2>
+            <h2>Dettaglio Debiti</h2>
             <div class="chart-container"><canvas id="chartDettaglioDebiti"></canvas></div>
+        </div>
+
+        <div class="card">
+            <h2>Performance MoM Patrimonio Netto (%)</h2>
+            <div class="chart-container"><canvas id="chartPerformance"></canvas></div>
         </div>
     </div>
 
     <!-- TAB 4: ASSET & REBALANCING -->
     <div id="tab-rebalancing" class="tab-content">
-        <div id="banner-rebalancing-smartinject"></div>
+        <div class="grid-2">
+            <div class="card">
+                <h2>Aggiungi / Monitora ETF & Asset (PAC)</h2>
+                <label>Nome Asset (es. Vanguard All-World)</label>
+                <input type="text" id="asset-nome" placeholder="Nome strumento...">
 
-        <div class="card">
-            <h2>Aggiungi / Modifica Singolo Asset ETF / Titolo</h2>
-            <div class="grid-2">
-                <div>
-                    <label>Nome Strumento / ETF</label>
-                    <input type="text" id="asset-nome" placeholder="es. VWCE - Vanguard All-World">
-                    
-                    <label>ISIN / Ticker (Opzionale)</label>
-                    <input type="text" id="asset-isin" placeholder="es. IE00BK5BQT33">
-                    
-                    <label>Target Portafoglio (%)</label>
-                    <input type="number" id="asset-target-pct" placeholder="es. 60">
-                </div>
-                <div>
-                    <label>Benchmark / Macro-Area Geografica</label>
-                    <select id="asset-benchmark">
-                        <option value="WORLD">MSCI World / All-World (60% USA, 15% EUR, 15% Asia, 10% EM)</option>
-                        <option value="USA">S&P 500 / USA (100% USA)</option>
-                        <option value="EUROPE">STOXX Europe 600 (100% Europa)</option>
-                        <option value="EM">MSCI Emerging Markets (100% Emergenti)</option>
-                        <option value="ITALY">BTP / Italia (100% Italia)</option>
-                    </select>
+                <label>ISIN (Opzionale)</label>
+                <input type="text" id="asset-isin" placeholder="IE00BK5BQT80">
 
-                    <label>Capitale Versato Totale (€)</label>
-                    <input type="number" id="asset-versato" placeholder="es. 10000">
+                <label>Quota nel PAC Mensile (€/mese)</label>
+                <input type="number" id="asset-quota-pac" placeholder="es. 250">
 
-                    <label>Valore Attuale di Mercato (€)</label>
-                    <input type="number" id="asset-attuale" placeholder="es. 11200">
-                </div>
+                <label>Valore Attuale nel Portafoglio (€)</label>
+                <input type="number" id="asset-valore-portafoglio" placeholder="es. 5400">
+
+                <label>Target Percentuale in Portafoglio (%)</label>
+                <input type="number" step="0.1" id="asset-target-pct" placeholder="es. 50">
+
+                <label>Benchmark / Area Geografica</label>
+                <select id="asset-benchmark">
+                    <option value="WORLD">All-World (60% US, 15% EU, 15% Asia, 10% EM)</option>
+                    <option value="USA">USA / Nord America (100%)</option>
+                    <option value="EUROPE">Europa (100%)</option>
+                    <option value="EM">Mercati Emergenti (100%)</option>
+                    <option value="ITALY">Italia (100%)</option>
+                </select>
+
+                <button class="btn-primary mt-15" onclick="salvaAssetSingolo()">Aggiungi al Monitoraggio</button>
             </div>
-            <button class="btn-success mt-15" onclick="salvaAssetSingolo()">Salva Asset in Portafoglio</button>
+
+            <div class="card">
+                <h2>Esposizione Geografica Stimata</h2>
+                <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
+            </div>
         </div>
 
         <div class="card">
-            <h2>Monitoraggio Rebalancing & Performance Asset</h2>
-            <div style="overflow-x: auto;">
+            <h2>Monitoraggio PAC & Piano di Rebalancing</h2>
+            <div style="overflow-x:auto;">
                 <table>
                     <thead>
                         <tr>
-                            <th>Asset</th>
+                            <th>Asset / ISIN</th>
+                            <th>Quota PAC</th>
                             <th>Valore Attuale</th>
-                            <th>Cap. Versato</th>
-                            <th>Gain / Loss Netto</th>
-                            <th>Peso Attuale %</th>
+                            <th>Peso Attuale</th>
                             <th>Target %</th>
-                            <th>Riallocazione (€)</th>
+                            <th>Riallocazione Consigliata</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>
@@ -310,25 +285,16 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h2>Esposizione Geografica Stimata</h2>
-                <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
-            </div>
-            <div class="card">
-                <h2>Performance Netta vs Capitale Versato</h2>
-                <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
-            </div>
+        <div class="card">
+            <h2>Ripartizione Quote PAC Mensili</h2>
+            <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
         </div>
     </div>
-
 </div>
 
-<!-- INCLUSIONE SCRIPTS MODULARI -->
+<!-- Script JavaScript suddivisi nei moduli dedicati -->
 <script src="js/app.js"></script>
 <script src="js/tab1-gestione.js"></script>
 <script src="js/tab2-dashboard.js"></script>
 <script src="js/tab3-dettagli.js"></script>
 <script src="js/tab4-rebalancing.js"></script>
-</body>
-</html>

@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.3.0'; 
+const CACHE_NAME = 'pfd-cache-v1.3.1'; 
 
 // 2. Includiamo anche Chart.js per il supporto offline completo
 const urlsToCache = [
