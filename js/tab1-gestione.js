@@ -28,7 +28,7 @@ function renderizzaConfigurazioni() {
     renderList('list-target-redditi', 'redditi');
     renderList('list-target-spese', 'spese');
 
-    // Inserisce il footer versione in calce alla pagina
+    aggiornaRiepilogoBudgetPagina1();
     aggiornaFooterVersione();
 }
 
@@ -40,6 +40,24 @@ function aggiornaFooterVersione() {
         footer.innerText = 'Personal Finance Dashboard v1.3.1';
         tab.appendChild(footer);
     });
+}
+
+function aggiornaRiepilogoBudgetPagina1() {
+    const redditi = (dbRadice.configurazioneTarget.redditi || []).reduce((a,b) => a + (b.importo || 0), 0);
+    const spese = (dbRadice.configurazioneTarget.spese || []).filter(s => s.attivo).reduce((a,b) => a + (b.importo || 0), 0);
+    const risparmioAtteso = redditi - spese;
+    const mesiEmergenza = dbRadice.configurazioneTarget.mesiEmergenza || 6;
+    const fondoTarget = spese * mesiEmergenza;
+
+    const elRedditi = document.getElementById('summary-redditi-target');
+    const elSpese = document.getElementById('summary-spese-target');
+    const elRisparmio = document.getElementById('summary-risparmio-atteso');
+    const elFondo = document.getElementById('summary-fondo-target');
+
+    if (elRedditi) elRedditi.innerText = redditi.toLocaleString() + " €";
+    if (elSpese) elSpese.innerText = spese.toLocaleString() + " €";
+    if (elRisparmio) elRisparmio.innerText = risparmioAtteso.toLocaleString() + " €";
+    if (elFondo) elFondo.innerText = fondoTarget.toLocaleString() + " €";
 }
 
 function toggleItemActive(key, index) {
@@ -100,7 +118,10 @@ function renderizzaFormCampi() {
 }
 
 function copiaUltimoMese() {
-    if (dbRadice.storicoMesi.length === 0) { alert("Nessun mese precedente."); return; }
+    if (!dbRadice.storicoMesi || dbRadice.storicoMesi.length === 0) { 
+        alert("Nessun mese precedente disponibile."); 
+        return; 
+    }
     const storicoOrdinato = [...dbRadice.storicoMesi].sort((a,b) => new Date(a.data) - new Date(b.data));
     const ultimo = storicoOrdinato[storicoOrdinato.length - 1];
 
@@ -191,15 +212,37 @@ function eliminaMese(index) {
 
 function renderizzaStoricoTabella() {
     const tbody = document.getElementById('table-storico-body');
+    if (!tbody) return;
     tbody.innerHTML = '';
+    
     const ordinati = [...dbRadice.storicoMesi].sort((a,b) => new Date(b.data) - new Date(a.data));
+    const ordinatiCrescenti = [...dbRadice.storicoMesi].sort((a,b) => new Date(a.data) - new Date(b.data));
+
+    const totRedditiTarget = (dbRadice.configurazioneTarget.redditi || []).reduce((a,b) => a + (b.importo || 0), 0);
+    const totSpeseTarget = (dbRadice.configurazioneTarget.spese || []).filter(s => s.attivo).reduce((a,b) => a + (b.importo || 0), 0);
+    const risparmioAttesoMensile = totRedditiTarget - totSpeseTarget;
 
     ordinati.forEach((m) => {
         const originalIndex = dbRadice.storicoMesi.indexOf(m);
+        const idxCrescente = ordinatiCrescenti.indexOf(m);
+
         const totBanche = Object.values(m.bancaDettaglio || {}).reduce((a,b) => a+b, 0);
         const totInv = Object.values(m.investimentiDettaglio || {}).reduce((a,b) => a+b, 0);
         const totDeb = Object.values(m.debiti || {}).reduce((a,b) => a+b, 0);
         const netto = totBanche + totInv - totDeb;
+
+        let deltaMoM = 0;
+        let diffRisparmio = 0;
+        if (idxCrescente > 0) {
+            const mPrec = ordinatiCrescenti[idxCrescente - 1];
+            const bPrec = Object.values(mPrec.bancaDettaglio || {}).reduce((a,b) => a+b, 0);
+            const iPrec = Object.values(mPrec.investimentiDettaglio || {}).reduce((a,b) => a+b, 0);
+            const dPrec = Object.values(mPrec.debiti || {}).reduce((a,b) => a+b, 0);
+            const nettoPrec = bPrec + iPrec - dPrec;
+            
+            deltaMoM = netto - nettoPrec;
+            diffRisparmio = deltaMoM - risparmioAttesoMensile;
+        }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -208,6 +251,8 @@ function renderizzaStoricoTabella() {
             <td>${totInv.toLocaleString()} €</td>
             <td>${totDeb.toLocaleString()} €</td>
             <td style="font-weight:bold; color: ${netto >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${netto.toLocaleString()} €</td>
+            <td style="color: ${deltaMoM >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${idxCrescente > 0 ? (deltaMoM >= 0 ? '+' : '') + deltaMoM.toLocaleString() + ' €' : '-'}</td>
+            <td style="color: ${diffRisparmio >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${idxCrescente > 0 ? (diffRisparmio >= 0 ? '+' : '') + diffRisparmio.toLocaleString() + ' €' : '-'}</td>
             <td>
                 <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" onclick="modificaMese(${originalIndex})">✏️</button>
                 <button class="btn-danger w-auto" style="padding:4px 8px; margin:0;" onclick="eliminaMese(${originalIndex})">🗑️</button>

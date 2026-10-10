@@ -50,6 +50,28 @@
         </div>
 
         <div class="card">
+            <h2>Riepilogo Budget & Risparmio Target</h2>
+            <div class="grid-4">
+                <div>
+                    <div class="kpi-title">Totale Redditi Target</div>
+                    <div class="kpi-value text-success" id="summary-redditi-target">0 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Totale Spese Attive</div>
+                    <div class="kpi-value text-danger" id="summary-spese-target">0 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Risparmio Atteso Mensile</div>
+                    <div class="kpi-value text-primary" id="summary-risparmio-atteso">0 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Fondo d'Emergenza Target</div>
+                    <div class="kpi-value text-warning" id="summary-fondo-target">0 €</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
             <h2>Configurazione Voci</h2>
             <p class="text-muted">Gestisci le voci attive (Soft Delete). Disattivandole non compariranno più nei nuovi form di inserimento.</p>
 
@@ -139,6 +161,8 @@
                             <th>Investimenti Tot.</th>
                             <th>Debiti Tot.</th>
                             <th>Patrimonio Netto</th>
+                            <th>Delta MoM</th>
+                            <th>Performance</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>
@@ -171,12 +195,16 @@
                 <input type="date" id="filter-date-end" onchange="aggiornaFiltriCondivisi('end', this.value)">
             </div>
             <div>
-                <label>Modalità Calcolo Metriche</label>
+                <label>Modalità Metriche Dashboard</label>
                 <select id="metric-mode" onchange="aggiornaFiltriCondivisi('mode', this.value)">
                     <option value="valore">Media Valore Assoluto (€)</option>
                     <option value="mom">Media Variazione Mensile (MoM €/mese)</option>
                     <option value="delta">Delta Totale Periodo (Inizio vs Fine €)</option>
                 </select>
+            </div>
+            <div>
+                <label>Visualizzazione Grafici</label>
+                <button type="button" id="btn-toggle-layout" class="btn-secondary" onclick="toggleLayoutGraficiDashboard()" style="margin-top: 2px;">🔀 Grafici: Separati</button>
             </div>
             <div style="align-self: flex-end;">
                 <button class="btn-secondary" onclick="resetFiltriDate()">Reset Filtri</button>
@@ -202,27 +230,7 @@
             </div>
         </div>
 
-        <div class="grid-2">
-            <div class="card">
-                <h2>Andamento Patrimoniale Storico</h2>
-                <div class="chart-container"><canvas id="chartPatrimonio"></canvas></div>
-            </div>
-            <div class="card">
-                <h2>Asset Allocation (Liquidità vs Investimenti)</h2>
-                <div class="chart-container"><canvas id="chartAssetAllocation"></canvas></div>
-            </div>
-        </div>
-
-        <div class="grid-2">
-            <div class="card">
-                <h2>Andamento Investimenti Storico</h2>
-                <div class="chart-container"><canvas id="chartInvestimentiStorico"></canvas></div>
-            </div>
-            <div class="card">
-                <h2>Andamento Debiti Storico</h2>
-                <div class="chart-container"><canvas id="chartDebitiStorico"></canvas></div>
-            </div>
-        </div>
+        <div id="container-grafici-dashboard"></div>
     </div>
 
     <!-- TAB 3: ANALISI DETTAGLIATA -->
@@ -234,7 +242,7 @@
             </div>
             <div>
                 <label>Data Fine</label>
-                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('end', this.value)">
+                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('start', this.value)">
             </div>
             <div>
                 <label>Modalità Calcolo Metriche</label>
@@ -262,8 +270,8 @@
             <div class="chart-container"><canvas id="chartDettaglioDebiti"></canvas></div>
         </div>
         <div class="card">
-            <h2>Performance MoM Patrimonio Netto (%)</h2>
-            <div class="chart-container"><canvas id="chartPerformance"></canvas></div>
+            <h2>Differenziale Risparmio (Effettivo vs Atteso)</h2>
+            <div class="chart-container"><canvas id="chartRisparmioAttesoVsEffettivo"></canvas></div>
         </div>
     </div>
 
