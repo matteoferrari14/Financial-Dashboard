@@ -3,883 +3,332 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Financial Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <title>Personal Finance Dashboard</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
-    <link rel="icon" href="logoApp.png" type="image/png">
-    <link rel="apple-touch-icon" href="logoApp.png">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                .then(reg => {
-                    console.log('Service Worker registrato con successo.', reg);
-                    
-                    richiediVersioneSW();
-
-                    reg.addEventListener('updatefound', () => {
-                        const newWorker = reg.installing;
-                        newWorker.addEventListener('statechange', () => {
-                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                window.location.reload();
-                            }
-                        });
-                    });
-                })
-                .catch(err => console.error('Errore registrazione Service Worker:', err));
-            });
-
-            let refreshing = false;
-            navigator.serviceWorker.addEventListener('controllerchange', () => {
-                if (!refreshing) {
-                    refreshing = true;
-                    window.location.reload();
-                }
-            });
-        }
-
-        function richiediVersioneSW() {
-            if (navigator.serviceWorker.controller) {
-                const messageChannel = new MessageChannel();
-                messageChannel.port1.onmessage = (event) => {
-                    if (event.data && event.data.version) {
-                        const el = document.getElementById('sw-version-display');
-                        if (el) el.innerText = event.data.version;
-                    }
-                };
-                navigator.serviceWorker.controller.postMessage(
-                    { type: 'GET_VERSION' }, 
-                    [messageChannel.port2]
-                );
-            }
-        }
-    </script>
-
-    <style>
-        :root {
-            --bg-color: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc; --text-muted: #94a3b8;
-            --accent-green: #10b981; --accent-blue: #3b82f6; --accent-amber: #f59e0b; --accent-red: #ef4444; --border: #334155;
-        }
-        
-        * { box-sizing: border-box; }
-        
-        body { 
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; 
-            background-color: var(--bg-color); 
-            color: var(--text-main); 
-            margin: 0; 
-            padding: 12px; 
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-        
-        .container { max-width: 1600px; margin: 0 auto; flex: 1; width: 100%; }
-        
-        header { 
-            border-bottom: 1px solid var(--border); 
-            padding-bottom: 12px; 
-            margin-bottom: 16px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px;
-        }
-        
-        h1 { margin: 0; font-size: 22px; text-align: center; }
-        header p { margin: 0; text-align: center; font-size: 13px; }
-        
-        .tabs-nav { display: flex; gap: 8px; width: 100%; }
-        .tab-btn { 
-            flex: 1; 
-            background: #334155; 
-            color: var(--text-muted); 
-            border: 1px solid var(--border); 
-            padding: 12px 8px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            font-size: 13px; 
-            text-align: center;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .tab-btn.active { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
-        
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        .grid-2-top, .grid-2 { 
-            display: grid; 
-            grid-template-columns: 1fr; 
-            gap: 16px; 
-            margin-bottom: 16px; 
-        }
-        
-        .card { background: var(--card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
-        h3 { margin-top: 0; margin-bottom: 14px; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        
-        .dinamic-row { display: grid; grid-template-columns: 1.2fr 0.8fr auto; gap: 6px; margin-bottom: 8px; align-items: center; }
-        .dinamic-row input { padding: 8px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
-        
-        .btn-add { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px dashed var(--accent-blue); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 14px; display: block; text-align: center; width: 100%; }
-        .btn-remove { background: transparent; color: var(--accent-red); border: none; cursor: pointer; font-size: 20px; font-weight: bold; padding: 4px 8px; }
-        
-        .form-group { margin-bottom: 12px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
-        input.main-form { width: 100%; padding: 10px; background: #0f172a; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
-        
-        button.main-btn { width: 100%; padding: 14px; background: var(--accent-blue); color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 10px; font-size: 14px; }
-        
-        .btn-export { background: var(--accent-green); margin-top: 12px; width: 100%; padding: 14px; border:none; border-radius:6px; color:#fff; font-weight:600; cursor:pointer; font-size: 13px;}
-        .btn-import { background: rgba(148, 163, 184, 0.15); border: 1px solid var(--border); margin-top: 8px; width: 100%; padding: 12px; border-radius:6px; color: var(--text-main); font-weight:600; cursor:pointer; font-size: 13px;}
-        
-        .btn-action-group { display: flex; gap: 6px; }
-        .btn-edit { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); border: 1px solid var(--accent-blue); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        .btn-delete { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-        
-        .kpi-summary-box { background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; margin-top: 10px; }
-        .kpi-line { display: flex; justify-content: space-between; padding: 4px 0; }
-        .kpi-divider { height: 1px; background: var(--border); margin: 6px 0; }
-        
-        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 16px; border-radius: 8px; border: 1px solid var(--border); }
-        table { width: 100%; border-collapse: collapse; min-width: 650px; }
-        th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: left; }
-        th { background: #1e293b; color: var(--text-muted); font-weight: 600; }
-        
-        .text-green { color: var(--accent-green); font-weight: 600; }
-        .text-blue { color: var(--accent-blue); font-weight: 600; }
-        .text-amber { color: var(--accent-amber); font-weight: 600; }
-        .text-red { color: var(--accent-red); font-weight: 600; }
-        .badge { padding: 3px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block; }
-        .badge-up { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-        .badge-down { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-        .section-sub { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin: 14px 0 6px 0; font-weight: bold; border-left: 2px solid var(--accent-blue); padding-left: 6px; }
-
-        .filter-bar { display: flex; flex-direction: column; gap: 10px; background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; }
-        .filter-bar label { margin: 0; font-weight: 600; display: flex; flex-direction: column; gap: 4px; color: var(--text-main); width: 100%; }
-        .filter-bar input { padding: 8px; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 13px; width: 100%; }
-        
-        .grid-averages { display: grid; grid-template-columns: 1fr; gap: 8px; background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 12px; font-size: 12px; }
-        .avg-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }
-        .avg-item:last-child { border-bottom: none; }
-
-        footer {
-            text-align: center;
-            padding: 16px 0 8px 0;
-            color: var(--text-muted);
-            font-size: 12px;
-            border-top: 1px solid var(--border);
-            margin-top: 24px;
-        }
-
-        @media (min-width: 768px) {
-            body { padding: 24px; }
-            header { flex-direction: row; justify-content: space-between; align-items: flex-end; padding-bottom: 16px; margin-bottom: 24px; }
-            h1 { text-align: left; font-size: 26px; }
-            header p { text-align: left; }
-            .tabs-nav { width: auto; }
-            .grid-2-top { grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-            .grid-2 { grid-template-columns: 1.2fr 0.8fr; gap: 24px; margin-bottom: 24px; }
-            .filter-bar { flex-direction: row; align-items: flex-end; gap: 16px; padding: 12px 16px; }
-            .filter-bar label { flex-direction: row; align-items: center; width: auto; }
-            .filter-bar input { width: auto; }
-            .grid-averages { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-            .avg-item { border-bottom: none; border-right: 1px solid var(--border); padding-right: 12px; padding-bottom: 0; }
-            .avg-item:last-child { border-right: none; padding-right: 0; }
-            .btn-add { width: auto; display: inline-block; }
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <div>
-            <h1>Personal Financial Dashboard</h1>
-            <p style="color: var(--text-muted); margin-top: 4px;">PWA Mobile-First con sincronizzazione automatica dati.json</p>
-        </div>
-        <div class="tabs-nav">
-            <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="tab-btn" onclick="switchTab('dettagli')">Analisi Dettagliata</button>
-        </div>
+        <h1>PFD - Personal Finance Dashboard</h1>
     </header>
 
-    <div id="tab-dashboard" class="tab-content active">
-        <div class="grid-2-top">
-            <div class="card" style="max-height: 500px; overflow-y: auto;">
-                <h3>1. Configurazione Target e Voci</h3>
-                
-                <div class="section-sub">Entrate / Redditi Componibili</div>
-                <div id="container-redditi"></div>
-                <button class="btn-add" onclick="aggiungiRigaInSezione('redditi')">+ Aggiungi Voce Entrata</button>
+    <!-- NAVIGATION TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-gestione')">1. Gestione & Inserimento</button>
+        <button class="tab-btn" onclick="switchTab('tab-dashboard')">2. Dashboard Patrimoniale</button>
+        <button class="tab-btn" onclick="switchTab('tab-dettagli')">3. Analisi Dettagliata</button>
+        <button class="tab-btn" onclick="switchTab('tab-rebalancing')">4. Asset & Rebalancing</button>
+    </div>
 
-                <div class="section-sub">Uscite / Spese Componibili</div>
-                <div id="container-spese"></div>
-                <button class="btn-add" onclick="aggiungiRigaInSezione('spese')">+ Aggiungi Voce Spesa</button>
+    <!-- TAB 1: GESTIONE & INSERIMENTO -->
+    <div id="tab-gestione" class="tab-content active">
+        <div class="card">
+            <h2>Parametri Fondo d'Emergenza & Liquidità</h2>
+            <div class="grid-2">
+                <div>
+                    <label>Copertura Fondo d'Emergenza (Mesi Spese Target):</label>
+                    <select id="config-mesi-emergenza" onchange="salvaParametriEmergenza()">
+                        <option value="3">3 Mesi</option>
+                        <option value="4">4 Mesi</option>
+                        <option value="5">5 Mesi</option>
+                        <option value="6" selected>6 Mesi</option>
+                        <option value="7">7 Mesi</option>
+                        <option value="8">8 Mesi</option>
+                        <option value="9">9 Mesi</option>
+                        <option value="10">10 Mesi</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Soglia Max Liquidità Extra (€ oltre il Fondo):</label>
+                    <input type="number" id="config-soglia-extra" placeholder="es. 5000" onchange="salvaParametriEmergenza()">
+                </div>
+            </div>
+        </div>
 
-                <div class="section-sub">Investimenti Ricorrenti (Budget)</div>
-                <div id="container-investimenti"></div>
-                <button class="btn-add" onclick="aggiungiRigaInSezione('investimenti')">+ Aggiungi Voce Investimento</button>
+        <div class="card">
+            <h2>Configurazione Voci & Target</h2>
+            <p class="text-muted">Gestisci le voci attive. Disattivandole (Soft Delete) non compariranno nei nuovi form senza perdere lo storico.</p>
 
-                <div class="section-sub">Nomenclature Conti Liquidità</div>
-                <div id="container-banca-nomi"></div>
-                <button class="btn-add" onclick="aggiungiVoceNomenclatura('bancaNomi', 'Nuovo Conto')">+ Aggiungi Tipo Liquidità</button>
+            <div class="grid-2">
+                <div>
+                    <h3>Conti / Banche</h3>
+                    <div id="list-bancaNomi"></div>
+                    <div class="flex-gap">
+                        <input type="text" id="new-bancaNome" placeholder="Nuova Banca">
+                        <button class="btn-primary w-auto" onclick="addConfigItem('bancaNomi')">+</button>
+                    </div>
 
-                <div class="section-sub">Nomenclature Asset Investimenti</div>
-                <div id="container-investimenti-nomi"></div>
-                <button class="btn-add" onclick="aggiungiVoceNomenclatura('investimentiNomi', 'Nuovo Asset')">+ Aggiungi Tipo Investimento</button>
+                    <h3>Investimenti</h3>
+                    <div id="list-investimentiNomi"></div>
+                    <div class="flex-gap">
+                        <input type="text" id="new-investimentiNome" placeholder="Nuovo Investimento">
+                        <button class="btn-primary w-auto" onclick="addConfigItem('investimentiNomi')">+</button>
+                    </div>
 
-                <div class="section-sub">Nomenclature Debiti Attivi</div>
-                <div id="container-debiti-nomi"></div>
-                <button class="btn-add" onclick="aggiungiVoceNomenclatura('debitiNomi', 'Nuovo Debito')">+ Aggiungi Tipologia Debito</button>
+                    <h3>Debiti / Finanziamenti</h3>
+                    <div id="list-debitiNomi"></div>
+                    <div class="flex-gap">
+                        <input type="text" id="new-debitiNome" placeholder="Nuovo Debito">
+                        <button class="btn-primary w-auto" onclick="addConfigItem('debitiNomi')">+</button>
+                    </div>
+                </div>
 
-                <div class="kpi-summary-box">
-                    <div class="kpi-line"><span>Totale Redditi Target:</span><b id="calc-tot-redditi" style="color: var(--text-main);">€0,00</b></div>
-                    <div class="kpi-line"><span>Totale Spese Target:</span><b id="calc-tot-spese" style="color: var(--text-main);">€0,00</b></div>
-                    <div class="kpi-divider"></div>
-                    <div class="kpi-line"><span>Risparmio Mensile Atteso:</span><b id="calc-risparmio-atteso" class="text-green">€0,00</b></div>
-                    <div class="kpi-line"><span>Aumento Cash Atteso:</span><b id="calc-cash-atteso" class="text-amber">€0,00</b></div>
+                <div>
+                    <h3>Budget Redditi Target</h3>
+                    <div id="list-target-redditi"></div>
+                    <div class="flex-gap">
+                        <input type="text" id="new-reddito-nome" placeholder="Nome">
+                        <input type="number" id="new-reddito-importo" placeholder="Importo €">
+                        <button class="btn-primary w-auto" onclick="addTargetItem('redditi')">+</button>
+                    </div>
+
+                    <h3>Budget Spese Target</h3>
+                    <div id="list-target-spese"></div>
+                    <div class="flex-gap">
+                        <input type="text" id="new-spesa-nome" placeholder="Nome">
+                        <input type="number" id="new-spesa-importo" placeholder="Importo €">
+                        <button class="btn-primary w-auto" onclick="addTargetItem('spese')">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <h2 id="form-title">Inserimento Nuovo Mese</h2>
+                <button class="btn-secondary w-auto" onclick="copiaUltimoMese()">📋 Copia da ultimo mese</button>
+            </div>
+            
+            <input type="hidden" id="edit-index" value="-1">
+            <div style="max-width: 250px;">
+                <label>Data Misurazione</label>
+                <input type="date" id="input-data">
+            </div>
+
+            <div class="grid-2 mt-15">
+                <div>
+                    <h3>Saldi Banche / Liquidità</h3>
+                    <div id="form-fields-banche"></div>
+                    <h3>Saldi Investimenti</h3>
+                    <div id="form-fields-investimenti"></div>
+                </div>
+                <div>
+                    <h3>Saldi Debiti / Passività</h3>
+                    <div id="form-fields-debiti"></div>
                 </div>
             </div>
 
-            <div class="card" style="max-height: 500px; overflow-y: auto;">
-                <h3 id="form-title">2. Nuova Misurazione</h3>
-                <form id="registro-form">
-                    <div class="form-group">
-                        <label>Data Misurazione</label>
-                        <input type="date" id="form-data" class="main-form" required>
-                    </div>
-                    <div id="blocco-dinamico-form"></div>
-                    <button type="submit" id="btn-submit-form" class="main-btn">Aggiungi in Tabella</button>
-                    <button type="button" id="btn-cancel-edit" class="btn-import" style="display:none; margin-top:8px;" onclick="annullaModifica()">Annulla Modifica</button>
-                </form>
+            <div class="flex-gap mt-15">
+                <button class="btn-success" id="btn-save-month" onclick="salvaMese()">Salva Misurazione</button>
+                <button class="btn-secondary" id="btn-cancel-edit" style="display: none;" onclick="annullaModifica()">Annulla Modifica</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Storico Misurazioni Salvate</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Liquidità Tot.</th>
+                            <th>Investimenti Tot.</th>
+                            <th>Debiti Tot.</th>
+                            <th>Patrimonio Netto</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-storico-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Importazione / Esportazione File Dati</h2>
+            <div class="flex-gap">
+                <button class="btn-primary" onclick="esportaFileDati()">📥 Scarica dati.js</button>
+                <input type="file" id="file-import" accept=".js,.json" style="display: none;" onchange="importaFileCompleto(this)">
+                <button class="btn-secondary" onclick="document.getElementById('file-import').click()">📤 Importa dati.js</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: DASHBOARD PATRIMONIALE -->
+    <div id="tab-dashboard" class="tab-content">
+        <div id="banner-liquidita-status"></div>
+
+        <div class="controls-bar">
+            <div>
+                <label>Data Inizio</label>
+                <input type="date" id="filter-date-start" onchange="aggiornaFiltriCondivisi('start', this.value)">
+            </div>
+            <div>
+                <label>Data Fine</label>
+                <input type="date" id="filter-date-end" onchange="aggiornaFiltriCondivisi('end', this.value)">
+            </div>
+            <div>
+                <label>Modalità Calcolo Metriche</label>
+                <select id="metric-mode" onchange="aggiornaFiltriCondivisi('mode', this.value)">
+                    <option value="valore">Media Valore Assoluto (€)</option>
+                    <option value="mom">Media Variazione Mensile (MoM €/mese)</option>
+                    <option value="delta">Delta Totale Periodo (Inizio vs Fine €)</option>
+                </select>
+            </div>
+            <div style="align-self: flex-end;">
+                <button class="btn-secondary" onclick="resetFiltriDate()">Reset Filtri</button>
+            </div>
+        </div>
+
+        <div class="grid-4">
+            <div class="card">
+                <div class="kpi-title">Patrimonio Netto</div>
+                <div class="kpi-value text-primary" id="kpi-netto">0 €</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Liquidità Totale</div>
+                <div class="kpi-value text-success" id="kpi-liquidita">0 €</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Investimenti Totali</div>
+                <div class="kpi-value text-warning" id="kpi-investimenti">0 €</div>
+            </div>
+            <div class="card">
+                <div class="kpi-title">Debiti Totali</div>
+                <div class="kpi-value text-danger" id="kpi-debiti">0 €</div>
             </div>
         </div>
 
         <div class="grid-2">
             <div class="card">
-                <h3>Andamento Patrimoniale Storico</h3>
-                <div style="position: relative; height: 280px;"><canvas id="patrimonioChart"></canvas></div>
+                <h2>Andamento Patrimoniale Storico</h2>
+                <div class="chart-container"><canvas id="chartPatrimonio"></canvas></div>
             </div>
-            <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; gap: 16px;">
-                <div>
-                    <h3>Sintesi Stato Attuale</h3>
-                    <table style="width: 100%; min-width: auto;">
-                        <tr><td><b>Capitale Netto:</b></td><td id="stat-netto" class="text-green" style="text-align: right; font-size: 16px; font-weight: bold;">-</td></tr>
-                        <tr><td><b>Liquidità Totale:</b></td><td id="stat-banca" class="text-amber" style="text-align: right;">-</td></tr>
-                        <tr><td><b>Investimenti Totali:</b></td><td id="stat-investimenti" class="text-blue" style="text-align: right;">-</td></tr>
-                        <tr><td><b>Debiti Complessivi:</b></td><td id="stat-debiti" class="text-red" style="text-align: right;">-</td></tr>
-                    </table>
-                </div>
-                <div>
-                    <button class="btn-export" onclick="esportaFileCompleto()">⬇️ Esporta File Backup (dati.json)</button>
-                    <input type="file" id="import-file" accept=".json,.js" style="display:none;" onchange="importaFileCompleto(this)">
-                    <button class="btn-import" onclick="document.getElementById('import-file').click()">⬆️ Importa File Backup (dati.json / dati.js)</button>
-                </div>
+            <div class="card">
+                <h2>Asset Allocation (Liquidità vs Investimenti)</h2>
+                <div class="chart-container"><canvas id="chartAssetAllocation"></canvas></div>
             </div>
-        </div>
-
-        <div class="table-responsive">
-            <table id="storico-tabella">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Liquidità</th>
-                        <th>Investimenti</th>
-                        <th>Debiti</th>
-                        <th>Cap. Netto</th>
-                        <th>Delta</th>
-                        <th>Performance</th>
-                        <th>Azioni</th>
-                    </tr>
-                </thead>
-                <tbody id="tabella-body"></tbody>
-            </table>
         </div>
     </div>
 
+    <!-- TAB 3: ANALISI DETTAGLIATA -->
     <div id="tab-dettagli" class="tab-content">
-        <div class="filter-bar">
-            <label>Da: <input type="date" id="filter-date-start" onchange="renderizzaGraficiDettaglio()"></label>
-            <label>A: <input type="date" id="filter-date-end" onchange="renderizzaGraficiDettaglio()"></label>
-            <button class="main-btn" style="margin: 0; padding: 10px;" onclick="resetFiltroDate()">Reset Periodo</button>
+        <div class="controls-bar">
+            <div>
+                <label>Data Inizio</label>
+                <input type="date" id="filter-date-start-det" onchange="aggiornaFiltriCondivisi('start', this.value)">
+            </div>
+            <div>
+                <label>Data Fine</label>
+                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('start', this.value)">
+            </div>
+            <div>
+                <label>Modalità Calcolo Metriche</label>
+                <select id="metric-mode-det" onchange="aggiornaFiltriCondivisi('mode', this.value)">
+                    <option value="valore">Media Valore Assoluto (€)</option>
+                    <option value="mom">Media Variazione Mensile (MoM €/mese)</option>
+                    <option value="delta">Delta Totale Periodo (Inizio vs Fine €)</option>
+                </select>
+            </div>
+            <div style="align-self: flex-end;">
+                <button class="btn-secondary" onclick="resetFiltriDate()">Reset Filtri</button>
+            </div>
         </div>
 
-        <div class="card" style="margin-bottom: 16px;">
-            <h3>Dettaglio Storico Voci di Liquidità</h3>
-            <div id="avg-container-bancaNomi" class="grid-averages"></div>
-            <div style="position: relative; height: 240px;"><canvas id="dettaglioBancaChart"></canvas></div>
+        <div class="card">
+            <h2>Dettaglio Singole Banche / Liquidità</h2>
+            <div class="chart-container"><canvas id="chartDettaglioBanche"></canvas></div>
         </div>
-        
-        <div class="card" style="margin-bottom: 16px;">
-            <h3>Dettaglio Storico Componenti Investimenti</h3>
-            <div id="avg-container-investimentiNomi" class="grid-averages"></div>
-            <div style="position: relative; height: 240px;"><canvas id="dettaglioInvestimentiChart"></canvas></div>
+        <div class="card">
+            <h2>Dettaglio Singoli Investimenti</h2>
+            <div class="chart-container"><canvas id="chartDettaglioInvestimenti"></canvas></div>
         </div>
-        
-        <div class="card" style="margin-bottom: 16px;">
-            <h3>Dettaglio Storico Estinzione Debiti</h3>
-            <div id="avg-container-debitiNomi" class="grid-averages"></div>
-            <div style="position: relative; height: 240px;"><canvas id="dettaglioDebitiChart"></canvas></div>
-        </div>
-
-        <div class="card" style="margin-bottom: 16px;">
-            <h3>Analisi Storica Scostamento della Performance</h3>
-            <div id="avg-container-performance" class="grid-averages"></div>
-            <div style="position: relative; height: 240px;"><canvas id="dettaglioPerformanceChart"></canvas></div>
+        <div class="card">
+            <h2>Dettaglio Singoli Debiti</h2>
+            <div class="chart-container"><canvas id="chartDettaglioDebiti"></canvas></div>
         </div>
     </div>
+
+    <!-- TAB 4: ASSET & REBALANCING -->
+    <div id="tab-rebalancing" class="tab-content">
+        <div id="banner-rebalancing-smartinject"></div>
+
+        <div class="card">
+            <h2>Aggiungi / Modifica Singolo Asset ETF / Titolo</h2>
+            <div class="grid-2">
+                <div>
+                    <label>Nome Strumento / ETF</label>
+                    <input type="text" id="asset-nome" placeholder="es. VWCE - Vanguard All-World">
+                    
+                    <label>ISIN / Ticker (Opzionale)</label>
+                    <input type="text" id="asset-isin" placeholder="es. IE00BK5BQT33">
+                    
+                    <label>Target Portafoglio (%)</label>
+                    <input type="number" id="asset-target-pct" placeholder="es. 60">
+                </div>
+                <div>
+                    <label>Benchmark / Macro-Area Geografica</label>
+                    <select id="asset-benchmark">
+                        <option value="WORLD">MSCI World / All-World (60% USA, 15% EUR, 15% Asia, 10% EM)</option>
+                        <option value="USA">S&P 500 / USA (100% USA)</option>
+                        <option value="EUROPE">STOXX Europe 600 (100% Europa)</option>
+                        <option value="EM">MSCI Emerging Markets (100% Emergenti)</option>
+                        <option value="ITALY">BTP / Italia (100% Italia)</option>
+                    </select>
+
+                    <label>Capitale Versato Totale (€)</label>
+                    <input type="number" id="asset-versato" placeholder="es. 10000">
+
+                    <label>Valore Attuale di Mercato (€)</label>
+                    <input type="number" id="asset-attuale" placeholder="es. 11200">
+                </div>
+            </div>
+            <button class="btn-success mt-15" onclick="salvaAssetSingolo()">Salva Asset in Portafoglio</button>
+        </div>
+
+        <div class="card">
+            <h2>Monitoraggio Rebalancing & Performance Asset</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Valore Attuale</th>
+                            <th>Cap. Versato</th>
+                            <th>Gain / Loss Netto</th>
+                            <th>Peso Attuale %</th>
+                            <th>Target %</th>
+                            <th>Riallocazione (€)</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-assets-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <h2>Esposizione Geografica Stimata</h2>
+                <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
+            </div>
+            <div class="card">
+                <h2>Performance Netta vs Capitale Versato</h2>
+                <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<footer>
-    <span>Personal Financial Dashboard &bull; Version <b id="sw-version-display">v1.2.1</b></span>
-</footer>
-
-<script>
-    const dbDefaultVuoto = {
-        configurazioneTarget: { redditi: [], spese: [], investimenti: [], bancaNomi: [], investimentiNomi: [], debitiNomi: [] },
-        storicoMesi: []
-    };
-
-    let dbRadice = JSON.parse(localStorage.getItem('database_finanziario_pro')) || dbDefaultVuoto;
-
-    let chartPatrimonio;
-    let chartDetBanca, chartDetInvestimenti, chartDetDebiti, chartDetPerformance;
-    let risparmioTeoricoTargetGlobale = 0;
-
-    function salvaNelLocalStorage() {
-        localStorage.setItem('database_finanziario_pro', JSON.stringify(dbRadice));
-    }
-
-    function formatEuro(v) { return '€' + (v || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        document.getElementById(`tab-${tabId}`).classList.add('active');
-        if(event && event.target) event.target.classList.add('active');
-        if(tabId === 'dettagli') {
-            initFiltroDateSeVuoto();
-            setTimeout(renderizzaGraficiDettaglio, 50);
-        }
-    }
-
-    function initFiltroDateSeVuoto() {
-        if(dbRadice.storicoMesi.length > 0) {
-            dbRadice.storicoMesi.sort((a, b) => new Date(a.data) - new Date(b.data));
-            if(!document.getElementById('filter-date-start').value) document.getElementById('filter-date-start').value = dbRadice.storicoMesi[0].data;
-            if(!document.getElementById('filter-date-end').value) document.getElementById('filter-date-end').value = dbRadice.storicoMesi[dbRadice.storicoMesi.length - 1].data;
-        }
-    }
-
-    function resetFiltroDate() {
-        if(dbRadice.storicoMesi.length > 0) {
-            document.getElementById('filter-date-start').value = dbRadice.storicoMesi[0].data;
-            document.getElementById('filter-date-end').value = dbRadice.storicoMesi[dbRadice.storicoMesi.length - 1].data;
-            renderizzaGraficiDettaglio();
-        }
-    }
-
-    function renderizzaSezioneConfigurazione() {
-        const sezioniMappate = { 'redditi': 'redditi', 'spese': 'spese', 'investimenti': 'investimenti' };
-        Object.keys(sezioniMappate).forEach(sez => {
-            const container = document.getElementById(`container-${sez}`);
-            container.innerHTML = '';
-            dbRadice.configurazioneTarget[sez].forEach((item, index) => {
-                const row = document.createElement('div');
-                row.className = 'dinamic-row';
-                row.innerHTML = `
-                    <input type="text" value="${item.nome}" onchange="aggiornaDatoConfigurazione('${sez}', ${index}, 'nome', this.value)" placeholder="Nome voce">
-                    <input type="number" step="0.01" value="${item.importo}" onchange="aggiornaDatoConfigurazione('${sez}', ${index}, 'importo', this.value)" placeholder="Importo €" style="text-align:right;">
-                    <button class="btn-remove" onclick="rimuoviRigaConfigurazione('${sez}', ${index})">×</button>
-                `;
-                container.appendChild(row);
-            });
-        });
-
-        const nomenclature = [
-            { chiave: 'bancaNomi', containerId: 'container-banca-nomi', placeholder: 'Nome Conto/Cassa' },
-            { chiave: 'investimentiNomi', containerId: 'container-investimenti-nomi', placeholder: 'Nome Strumento/ETF' },
-            { chiave: 'debitiNomi', containerId: 'container-debiti-nomi', placeholder: 'Nome Debito/Prestito' }
-        ];
-
-        nomenclature.forEach(nom => {
-            const container = document.getElementById(nom.containerId);
-            container.innerHTML = '';
-            dbRadice.configurazioneTarget[nom.chiave].forEach((item, index) => {
-                const row = document.createElement('div');
-                row.className = 'dinamic-row';
-                row.style.gridTemplateColumns = '2.5fr auto';
-                row.innerHTML = `
-                    <input type="text" value="${item.nome}" onchange="aggiornaNomeNomenclatura('${nom.chiave}', ${index}, this.value)" placeholder="${nom.placeholder}">
-                    <button class="btn-remove" onclick="rimuoviNomenclatura('${nom.chiave}', ${index})">×</button>
-                `;
-                container.appendChild(row);
-            });
-        });
-
-        calcolaEseguiTotaliTarget();
-        generaCampiFormNuovoMese();
-    }
-
-    function aggiungiRigaInSezione(sez) {
-        dbRadice.configurazioneTarget[sez].push({ nome: `Nuova voce`, importo: 0 });
-        salvaNelLocalStorage();
-        renderizzaSezioneConfigurazione();
-    }
-    function rimuoviRigaConfigurazione(sez, index) {
-        dbRadice.configurazioneTarget[sez].splice(index, 1);
-        salvaNelLocalStorage();
-        renderizzaSezioneConfigurazione();
-    }
-    function aggiungiVoceNomenclatura(chiave, nomeDefault) {
-        dbRadice.configurazioneTarget[chiave].push({ nome: nomeDefault });
-        salvaNelLocalStorage();
-        renderizzaSezioneConfigurazione();
-    }
-    function rimuoviNomenclatura(chiave, index) {
-        dbRadice.configurazioneTarget[chiave].splice(index, 1);
-        salvaNelLocalStorage();
-        renderizzaSezioneConfigurazione();
-    }
-    function aggiornaNomeNomenclatura(chiave, index, valore) {
-        dbRadice.configurazioneTarget[chiave][index].nome = valore;
-        salvaNelLocalStorage();
-        renderizzaSezioneConfigurazione();
-    }
-    function aggiornaDatoConfigurazione(sez, index, campo, valore) {
-        if (campo === 'importo') dbRadice.configurazioneTarget[sez][index][campo] = parseFloat(valore) || 0;
-        else dbRadice.configurazioneTarget[sez][index][campo] = valore;
-        salvaNelLocalStorage();
-        calcolaEseguiTotaliTarget();
-    }
-
-    function calcolaEseguiTotaliTarget() {
-        const totRedditi = dbRadice.configurazioneTarget.redditi.reduce((sum, item) => sum + item.importo, 0);
-        const totSpese = dbRadice.configurazioneTarget.spese.reduce((sum, item) => sum + item.importo, 0);
-        const totInvestimenti = dbRadice.configurazioneTarget.investimenti.reduce((sum, item) => sum + item.importo, 0);
-
-        risparmioTeoricoTargetGlobale = totRedditi - totSpese; 
-        const aumentoCashAtteso = totRedditi - totSpese - totInvestimenti;
-
-        document.getElementById('calc-tot-redditi').innerText = formatEuro(totRedditi);
-        document.getElementById('calc-tot-spese').innerText = formatEuro(totSpese);
-        document.getElementById('calc-risparmio-atteso').innerText = formatEuro(risparmioTeoricoTargetGlobale);
-        document.getElementById('calc-cash-atteso').innerText = formatEuro(aumentoCashAtteso);
-        renderizzaInterfaccia();
-    }
-
-    function generaCampiFormNuovoMese() {
-        const blocco = document.getElementById('blocco-dinamico-form');
-        blocco.innerHTML = '';
-
-        const macroCategorie = [
-            { chiave: 'bancaNomi', titolo: 'Dettaglio Liquidità Corrente', classeCss: 'input-banca-valore' },
-            { chiave: 'investimentiNomi', titolo: 'Dettaglio Asset Investiti', classeCss: 'input-investimenti-valore' },
-            { chiave: 'debitiNomi', titolo: 'Dettaglio Debiti Attivi', classeCss: 'input-debito-valore' }
-        ];
-
-        macroCategorie.forEach(cat => {
-            if(dbRadice.configurazioneTarget[cat.chiave].length > 0) {
-                const p = document.createElement('p');
-                p.style = 'margin: 16px 0 6px 0; font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #23314d; padding-bottom: 2px;';
-                p.innerText = cat.titolo;
-                blocco.appendChild(p);
-
-                let rowDiv = document.createElement('div');
-                rowDiv.className = 'form-row';
-                blocco.appendChild(rowDiv);
-
-                dbRadice.configurazioneTarget[cat.chiave].forEach((voce) => {
-                    const group = document.createElement('div');
-                    group.className = 'form-group';
-                    group.innerHTML = `<label>${voce.nome} (€)</label><input type="number" step="0.01" class="main-form ${cat.classeCss}" data-nome="${voce.nome}" required>`;
-                    rowDiv.appendChild(group);
-                });
-            }
-        });
-    }
-
-    function renderizzaInterfaccia() {
-        dbRadice.storicoMesi.sort((a, b) => new Date(a.data) - new Date(b.data));
-        const tbody = document.getElementById('tabella-body');
-        if(!tbody) return;
-        tbody.innerHTML = '';
-        
-        let labels = [], datasetNetto = [], datasetInvestimenti = [], datasetBanca = [], datasetDebitiTotali = [];
-
-        dbRadice.storicoMesi.forEach((item, index) => {
-            let totBancaMese = 0;
-            if (item.bancaDettaglio) { Object.values(item.bancaDettaglio).forEach(v => totBancaMese += v); } else { totBancaMese = item.banca || 0; }
-            let totInvestimentiMese = 0;
-            if (item.investimentiDettaglio) { Object.values(item.investimentiDettaglio).forEach(v => totInvestimentiMese += v); } else { totInvestimentiMese = item.investimenti || 0; }
-            let totDebitiMese = 0;
-            dbRadice.configurazioneTarget.debitiNomi.forEach(d => { totDebitiMese += (item.debiti && item.debiti[d.nome]) ? item.debiti[d.nome] : 0; });
-
-            const capNetto = (totBancaMese + totInvestimentiMese) - totDebitiMese;
-            let deltaReale = 0;
-            if (index > 0) {
-                let prevB = 0, prevI = 0, prevD = 0;
-                const prevMese = dbRadice.storicoMesi[index-1];
-                if(prevMese.bancaDettaglio) Object.values(prevMese.bancaDettaglio).forEach(v => prevB += v); else prevB = prevMese.banca || 0;
-                if(prevMese.investimentiDettaglio) Object.values(prevMese.investimentiDettaglio).forEach(v => prevI += v); else prevI = prevMese.investimenti || 0;
-                dbRadice.configurazioneTarget.debitiNomi.forEach(d => { prevD += (prevMese.debiti && prevMese.debiti[d.nome]) ? prevMese.debiti[d.nome] : 0; });
-                deltaReale = capNetto - ((prevB + prevI) - prevD);
-            } else if (item.delta) { deltaReale = item.delta; }
-
-            const scostamento = deltaReale - risparmioTeoricoTargetGlobale;
-            labels.push(item.data); datasetNetto.push(capNetto); datasetInvestimenti.push(totInvestimentiMese); datasetBanca.push(totBancaMese); datasetDebitiTotali.push(totDebitiMese);
-
-            const eFittizio = item.fittizio 
-                ? `<span style="font-size:0.8em; color:#d97706; font-style:italic;" title="${item.nota}"> ⚠️ (Interpolato)</span>` 
-                : '';
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><b>${item.data}</b>${eFittizio}</td>
-                <td class="text-amber">${formatEuro(totBancaMese)}</td>
-                <td class="text-blue">${formatEuro(totInvestimentiMese)}</td>
-                <td class="text-red">${formatEuro(totDebitiMese)}</td>
-                <td class="text-green">${formatEuro(capNetto)}</td>
-                <td>${index === 0 ? '-' : formatEuro(deltaReale)}</td>
-                <td>${index === 0 ? '-' : `<span class="badge ${scostamento >= 0 ? 'badge-up' : 'badge-down'}">${scostamento >= 0 ? '+' : ''}${formatEuro(scostamento)}</span>`}</td>
-                <td>
-                    <div class="btn-action-group">
-                        <button class="btn-edit" onclick="caricaRecordPerModifica('${item.data}')">Modifica</button>
-                        <button class="btn-delete" onclick="eliminaRecord('${item.data}')">Elimina</button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        if (dbRadice.storicoMesi.length > 0) {
-            const u = dbRadice.storicoMesi[dbRadice.storicoMesi.length - 1]; 
-            let uB = 0, uI = 0, uD = 0;
-            if(u.bancaDettaglio) Object.values(u.bancaDettaglio).forEach(v => uB += v); else uB = u.banca || 0;
-            if(u.investimentiDettaglio) Object.values(u.investimentiDettaglio).forEach(v => uI += v); else uI = u.investimenti || 0;
-            dbRadice.configurazioneTarget.debitiNomi.forEach(d => { uD += (u.debiti && u.debiti[d.nome]) ? u.debiti[d.nome] : 0; });
-
-            document.getElementById('stat-netto').innerText = formatEuro((uB + uI) - uD);
-            document.getElementById('stat-banca').innerText = formatEuro(uB); 
-            document.getElementById('stat-investimenti').innerText = formatEuro(uI); 
-            document.getElementById('stat-debiti').innerText = formatEuro(uD);
-        }
-
-        if (chartPatrimonio) {
-            chartPatrimonio.data.labels = labels; chartPatrimonio.data.datasets[0].data = datasetNetto; chartPatrimonio.data.datasets[1].data = datasetInvestimenti; chartPatrimonio.data.datasets[2].data = datasetBanca; chartPatrimonio.data.datasets[3].data = datasetDebitiTotali; chartPatrimonio.update();
-        } else {
-            const ctx = document.getElementById('patrimonioChart');
-            if(ctx) {
-                chartPatrimonio = new Chart(ctx.getContext('2d'), {
-                    type: 'line', data: { labels: labels, datasets: [
-                        { label: 'Capitale Netto', data: datasetNetto, borderColor: '#10b981', borderWidth: 3, tension: 0.1 },
-                        { label: 'Investimenti', data: datasetInvestimenti, borderColor: '#3b82f6', borderWidth: 2, borderDash: [3,3], tension: 0.1 },
-                        { label: 'Banca/Liquidità', data: datasetBanca, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.05)', fill: true, tension: 0.1 },
-                        { label: 'Debiti Complessivi', data: datasetDebitiTotali, borderColor: '#ef4444', borderWidth: 2, borderDash: [5,5], tension: 0.1 }
-                    ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { y: { grid: { color: '#22314d' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }
-                });
-            }
-        }
-    }
-
-    function caricaRecordPerModifica(dataM) {
-        const record = dbRadice.storicoMesi.find(i => i.data === dataM);
-        if (!record) return;
-
-        document.getElementById('form-data').value = record.data;
-        document.getElementById('form-data').readOnly = true;
-
-        document.querySelectorAll('.input-banca-valore').forEach(input => {
-            const nome = input.getAttribute('data-nome');
-            input.value = record.bancaDettaglio && record.bancaDettaglio[nome] !== undefined ? record.bancaDettaglio[nome] : 0;
-        });
-        document.querySelectorAll('.input-investimenti-valore').forEach(input => {
-            const nome = input.getAttribute('data-nome');
-            input.value = record.investimentiDettaglio && record.investimentiDettaglio[nome] !== undefined ? record.investimentiDettaglio[nome] : 0;
-        });
-        document.querySelectorAll('.input-debito-valore').forEach(input => {
-            const nome = input.getAttribute('data-nome');
-            input.value = record.debiti && record.debiti[nome] !== undefined ? record.debiti[nome] : 0;
-        });
-
-        document.getElementById('form-title').innerText = "Modifica Misurazione (" + record.data + ")";
-        document.getElementById('btn-submit-form').innerText = "Salva Modifiche";
-        document.getElementById('btn-cancel-edit').style.display = "block";
-
-        document.getElementById('registro-form').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function annullaModifica() {
-        document.getElementById('registro-form').reset();
-        document.getElementById('form-data').readOnly = false;
-        document.getElementById('form-title').innerText = "2. Nuova Misurazione";
-        document.getElementById('btn-submit-form').innerText = "Aggiungi in Tabella";
-        document.getElementById('btn-cancel-edit').style.display = "none";
-    }
-
-    function eliminaRecord(dataM) {
-        if (confirm("Vuoi davvero eliminare la registrazione del " + dataM + "?")) {
-            dbRadice.storicoMesi = dbRadice.storicoMesi.filter(i => i.data !== dataM);
-            salvaNelLocalStorage();
-            renderizzaInterfaccia();
-            if (document.getElementById('tab-dettagli').classList.contains('active')) renderizzaGraficiDettaglio();
-        }
-    }
-
-    function renderizzaGraficiDettaglio() {
-        const startFilter = document.getElementById('filter-date-start').value;
-        const endFilter = document.getElementById('filter-date-end').value;
-
-        let mesiFiltrati = dbRadice.storicoMesi.filter(mese => {
-            if (startFilter && mese.data < startFilter) return false;
-            if (endFilter && mese.data > endFilter) return false;
-            return true;
-        });
-        mesiFiltrati.sort((a, b) => new Date(a.data) - new Date(b.data));
-
-        const labels = mesiFiltrati.map(m => m.data);
-        const paletteColori = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#f97316'];
-
-        if (chartDetBanca) { chartDetBanca.destroy(); chartDetBanca = null; }
-        if (chartDetInvestimenti) { chartDetInvestimenti.destroy(); chartDetInvestimenti = null; }
-        if (chartDetDebiti) { chartDetDebiti.destroy(); chartDetDebiti = null; }
-        if (chartDetPerformance) { chartDetPerformance.destroy(); chartDetPerformance = null; }
-
-        const struttureMappe = [
-            { idCanvas: 'dettaglioBancaChart', avgContainerId: 'avg-container-bancaNomi', nomiConfig: 'bancaNomi', chiaveMeseDettaglio: 'bancaDettaglio', fallbackChiaveSingola: 'banca', setChart: (c) => chartDetBanca = c },
-            { idCanvas: 'dettaglioInvestimentiChart', avgContainerId: 'avg-container-investimentiNomi', nomiConfig: 'investimentiNomi', chiaveMeseDettaglio: 'investimentiDettaglio', fallbackChiaveSingola: 'investimenti', setChart: (c) => chartDetInvestimenti = c },
-            { idCanvas: 'dettaglioDebitiChart', avgContainerId: 'avg-container-debitiNomi', nomiConfig: 'debitiNomi', chiaveMeseDettaglio: 'debiti', fallbackChiaveSingola: null, setChart: (c) => chartDetDebiti = c }
-        ];
-
-        struttureMappe.forEach(mappa => {
-            let datasetsDinamic = [];
-            const containerMedie = document.getElementById(mappa.avgContainerId);
-            if(containerMedie) containerMedie.innerHTML = '';
-
-            dbRadice.configurazioneTarget[mappa.nomiConfig].forEach((voceConfig, vIdx) => {
-                let dataPunti = []; let sommaMedie = 0;
-                mesiFiltrati.forEach(mese => {
-                    let val = 0;
-                    if(mese[mappa.chiaveMeseDettaglio] && mese[mappa.chiaveMeseDettaglio][voceConfig.nome] !== undefined) { val = mese[mappa.chiaveMeseDettaglio][voceConfig.nome]; }
-                    else if (vIdx === 0 && mappa.fallbackChiaveSingola && mese[mappa.fallbackChiaveSingola]) { val = mese[mappa.fallbackChiaveSingola]; }
-                    dataPunti.push(val); sommaMedie += val;
-                });
-                const mediaValore = labels.length > 0 ? (sommaMedie / labels.length) : 0;
-                if(containerMedie) {
-                    const avgBox = document.createElement('div');
-                    avgBox.className = 'avg-item';
-                    avgBox.innerHTML = `<span>Media ${voceConfig.nome}:</span><b>${formatEuro(mediaValore)}</b>`;
-                    containerMedie.appendChild(avgBox);
-                }
-
-                datasetsDinamic.push({ label: voceConfig.nome, data: dataPunti, borderColor: paletteColori[vIdx % paletteColori.length], borderWidth: 2, tension: 0.1, fill: false });
-            });
-
-            const canvasEl = document.getElementById(mappa.idCanvas);
-            if(canvasEl) {
-                const istanza = new Chart(canvasEl.getContext('2d'), {
-                    type: 'line', data: { labels: labels, datasets: datasetsDinamic },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { y: { grid: { color: '#22314d' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }
-                });
-                mappa.setChart(istanza);
-            }
-        });
-
-        let dataPuntiPerformance = []; let sommaPerformance = 0;
-        mesiFiltrati.forEach(mese => {
-            const origIdx = dbRadice.storicoMesi.findIndex(m => m.data === mese.data);
-            let totBancaMese = 0; if (mese.bancaDettaglio) Object.values(mese.bancaDettaglio).forEach(v => totBancaMese += v); else totBancaMese = mese.banca || 0;
-            let totInvestimentiMese = 0; if (mese.investimentiDettaglio) Object.values(mese.investimentiDettaglio).forEach(v => totInvestimentiMese += v); else totInvestimentiMese = mese.investimenti || 0;
-            let totDebitiMese = 0; dbRadice.configurazioneTarget.debitiNomi.forEach(d => { totDebitiMese += (mese.debiti && mese.debiti[d.nome]) ? mese.debiti[d.nome] : 0; });
-            const capNetto = (totBancaMese + totInvestimentiMese) - totDebitiMese;
-
-            let deltaReale = 0;
-            if (origIdx > 0) {
-                let prevB = 0, prevI = 0, prevD = 0; const prevMese = dbRadice.storicoMesi[origIdx - 1];
-                if(prevMese.bancaDettaglio) Object.values(prevMese.bancaDettaglio).forEach(v => prevB += v); else prevB = prevMese.banca || 0;
-                if(prevMese.investimentiDettaglio) Object.values(prevMese.investimentiDettaglio).forEach(v => prevI += v); else prevI = prevMese.investimenti || 0;
-                dbRadice.configurazioneTarget.debitiNomi.forEach(d => { prevD += (prevMese.debiti && prevMese.debiti[d.nome]) ? prevMese.debiti[d.nome] : 0; });
-                deltaReale = capNetto - ((prevB + prevI) - prevD);
-            } else if (mese.delta) { deltaReale = mese.delta; }
-
-            const scostamento = origIdx === 0 ? 0 : deltaReale - risparmioTeoricoTargetGlobale;
-            dataPuntiPerformance.push(scostamento); sommaPerformance += scostamento;
-        });
-
-        const mediaPerformance = labels.length > 0 ? (sommaPerformance / labels.length) : 0;
-        const perfContainer = document.getElementById('avg-container-performance');
-        if(perfContainer) perfContainer.innerHTML = `<div class="avg-item"><span>Media Scostamento:</span><b class="${mediaPerformance >= 0 ? 'text-green' : 'text-red'}">${formatEuro(mediaPerformance)}</b></div>`;
-
-        const perfCtx = document.getElementById('dettaglioPerformanceChart');
-        if(perfCtx) {
-            chartDetPerformance = new Chart(perfCtx.getContext('2d'), {
-                type: 'bar', data: { labels: labels, datasets: [{ label: 'Scostamento Mensile Reale vs Target', data: dataPuntiPerformance, backgroundColor: dataPuntiPerformance.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)'), borderColor: dataPuntiPerformance.map(v => v >= 0 ? '#10b981' : '#ef4444'), borderWidth: 1 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff' } } }, scales: { y: { grid: { color: '#22314d' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } }
-            });
-        }
-    }
-
-    document.getElementById('registro-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const dataNuovaStr = document.getElementById('form-data').value;
-        const dataNuova = new Date(dataNuovaStr);
-
-        let subBanca = {}; document.querySelectorAll('.input-banca-valore').forEach(input => { subBanca[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
-        let subInvestimenti = {}; document.querySelectorAll('.input-investimenti-valore').forEach(input => { subInvestimenti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
-        let subDebiti = {}; document.querySelectorAll('.input-debito-valore').forEach(input => { subDebiti[input.getAttribute('data-nome')] = parseFloat(input.value) || 0; });
-
-        const nuovaMisurazione = { data: dataNuovaStr, delta: 0, bancaDettaglio: subBanca, investimentiDettaglio: subInvestimenti, debiti: subDebiti };
-
-        const storicoOrdinato = [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data));
-        const recordPrecedenti = storicoOrdinato.filter(r => new Date(r.data) < dataNuova);
-
-        if (recordPrecedenti.length > 0) {
-            const ultimoRecord = recordPrecedenti[recordPrecedenti.length - 1];
-            const dataUltimo = new Date(ultimoRecord.data);
-            
-            const diffTempo = dataNuova - dataUltimo;
-            const diffGiorni = Math.floor(diffTempo / (1000 * 60 * 60 * 24));
-
-            if (diffGiorni > 50) {
-                const inserisciFittizi = confirm(
-                    `Sono trascorsi ${diffGiorni} giorni dall'ultima misurazione (${ultimoRecord.data}).\n\n` +
-                    `Vuoi inserire automaticamente i mesi fittizi intermedi per normalizzare i calcoli della performance mensile?`
-                );
-
-                if (inserisciFittizi) {
-                    generaMesiFittizi(ultimoRecord, nuovaMisurazione);
-                }
-            }
-        }
-
-        const idx = dbRadice.storicoMesi.findIndex(i => i.data === dataNuovaStr);
-        if (idx !== -1) dbRadice.storicoMesi[idx] = nuovaMisurazione; 
-        else dbRadice.storicoMesi.push(nuovaMisurazione);
-        
-        salvaNelLocalStorage();
-        renderizzaInterfaccia();
-        annullaModifica();
-        generaCampiFormNuovoMese();
-    });
-
-    function generaMesiFittizi(recordInizio, recordFine) {
-        const dInizio = new Date(recordInizio.data);
-        const dFine = new Date(recordFine.data);
-
-        let corrente = new Date(dInizio.getFullYear(), dInizio.getMonth() + 1, 1);
-        const mesiIntermedi = [];
-
-        while (corrente < new Date(dFine.getFullYear(), dFine.getMonth(), 1)) {
-            const dataStr = corrente.toISOString().split('T')[0];
-            mesiIntermedi.push(dataStr);
-            corrente.setMonth(corrente.getMonth() + 1);
-        }
-
-        if (mesiIntermedi.length === 0) return;
-
-        const totalePassi = mesiIntermedi.length + 1;
-
-        mesiIntermedi.forEach((dataMese, idx) => {
-            const fattore = (idx + 1) / totalePassi;
-
-            let subBanca = {};
-            dbRadice.configurazioneTarget.bancaNomi.forEach(item => {
-                const vInizio = (recordInizio.bancaDettaglio && recordInizio.bancaDettaglio[item.nome]) || 0;
-                const vFine = (recordFine.bancaDettaglio && recordFine.bancaDettaglio[item.nome]) || 0;
-                subBanca[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
-            });
-
-            let subInvestimenti = {};
-            dbRadice.configurazioneTarget.investimentiNomi.forEach(item => {
-                const vInizio = (recordInizio.investimentiDettaglio && recordInizio.investimentiDettaglio[item.nome]) || 0;
-                const vFine = (recordFine.investimentiDettaglio && recordFine.investimentiDettaglio[item.nome]) || 0;
-                subInvestimenti[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
-            });
-
-            let subDebiti = {};
-            dbRadice.configurazioneTarget.debitiNomi.forEach(item => {
-                const vInizio = (recordInizio.debiti && recordInizio.debiti[item.nome]) || 0;
-                const vFine = (recordFine.debiti && recordFine.debiti[item.nome]) || 0;
-                subDebiti[item.nome] = Math.round((vInizio + (vFine - vInizio) * fattore) * 100) / 100;
-            });
-
-            const recordFittizio = {
-                data: dataMese,
-                delta: 0,
-                bancaDettaglio: subBanca,
-                investimentiDettaglio: subInvestimenti,
-                debiti: subDebiti,
-                fittizio: true,
-                nota: "Dato ricavato tramite interpolazione"
-            };
-
-            const idxEsistente = dbRadice.storicoMesi.findIndex(i => i.data === dataMese);
-            if (idxEsistente === -1) {
-                dbRadice.storicoMesi.push(recordFittizio);
-            }
-        });
-    }
-
-    function esportaFileCompleto() {
-        const contenutoJson = JSON.stringify(dbRadice, null, 4);
-        const blob = new Blob([contenutoJson], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'dati.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
-    }
-
-    function importaFileCompleto(input) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                // Legge il testo puro del JSON
-                const fileContent = e.target.result.trim();
-                
-                // Parsing diretto del JSON
-                const parsed = JSON.parse(fileContent);
-
-                // Verifica che la struttura minima sia valida
-                if (parsed && typeof parsed === 'object' && (parsed.configurazioneTarget || parsed.storicoMesi)) {
-                    dbRadice = {
-                        configurazioneTarget: parsed.configurazioneTarget || dbDefaultVuoto.configurazioneTarget,
-                        storicoMesi: parsed.storicoMesi || []
-                    };
-                    salvaNelLocalStorage();
-                    renderizzaSezioneConfigurazione();
-                    
-                    // Se la scheda dettagli è aperta, aggiorna anche quella
-                    if (document.getElementById('tab-dettagli').classList.contains('active')) {
-                        renderizzaGraficiDettaglio();
-                    }
-
-                    alert("File dati.json importato con successo!");
-                    // Resetta l'input file per permettere di ricaricare lo stesso file se necessario
-                    input.value = '';
-                } else { 
-                    alert("Struttura JSON non valida. Il file deve contenere 'configurazioneTarget' o 'storicoMesi'."); 
-                }
-            } catch(err) { 
-                console.error("Errore durante l'importazione JSON:", err);
-                alert("Impossibile leggere il file: assicurati che sia un JSON valido."); 
-            }
-        };
-        reader.readAsText(file);
-    }
-    
-    window.addEventListener('DOMContentLoaded', () => {
-        renderizzaSezioneConfigurazione();
-        setTimeout(richiediVersioneSW, 500);
-    });
-</script>
+<!-- INCLUSIONE SCRIPTS MODULARI -->
+<script src="js/app.js"></script>
+<script src="js/tab1-gestione.js"></script>
+<script src="js/tab2-dashboard.js"></script>
+<script src="js/tab3-dettagli.js"></script>
+<script src="js/tab4-rebalancing.js"></script>
 </body>
 </html>
