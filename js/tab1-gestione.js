@@ -53,7 +53,7 @@ function aggiornaFooterVersione() {
     document.querySelectorAll('.tab-content').forEach(tab => {
         const footer = document.createElement('div');
         footer.className = 'app-footer';
-        footer.innerText = 'Personal Finance Dashboard v1.3.1';
+        footer.innerText = 'Personal Finance Dashboard v1.3.3';
         tab.appendChild(footer);
     });
 }
@@ -212,12 +212,30 @@ function modificaMese(index) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+window.onload = function() {
+    caricaDaLocalStorage();
+    normalizzaConfigurazione();
+    renderizzaTutto();
+    
+    // Imposta la data odierna come default all'avvio
+    const inputData = document.getElementById('input-data');
+    if (inputData && !inputData.value) {
+        inputData.value = new Date().toISOString().split('T')[0];
+    }
+};
+
 function annullaModifica() {
     document.getElementById('edit-index').value = "-1";
     document.getElementById('form-title').innerText = "Inserimento Nuovo Mese";
     document.getElementById('btn-save-month').innerText = "Salva Misurazione";
     document.getElementById('btn-cancel-edit').style.display = "none";
-    document.getElementById('input-data').valueAsDate = new Date();
+    
+    // Reimposta la data odierna
+    const inputData = document.getElementById('input-data');
+    if (inputData) {
+        inputData.value = new Date().toISOString().split('T')[0];
+    }
+    
     document.querySelectorAll('input[class*="input-dynamic-"]').forEach(i => i.value = '');
 }
 
