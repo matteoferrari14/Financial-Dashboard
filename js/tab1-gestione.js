@@ -1,9 +1,13 @@
 function renderizzaConfigurazioni() {
-    document.getElementById('config-mesi-emergenza').value = dbRadice.configurazioneTarget.mesiEmergenza || 6;
-    document.getElementById('config-soglia-extra').value = dbRadice.configurazioneTarget.sogliaExtraLiquidita || 5000;
+    const inputMesi = document.getElementById('config-mesi-emergenza');
+    const inputSoglia = document.getElementById('config-soglia-extra');
+
+    if (inputMesi) inputMesi.value = dbRadice.configurazioneTarget.mesiEmergenza || 6;
+    if (inputSoglia) inputSoglia.value = dbRadice.configurazioneTarget.sogliaExtraLiquidita || 5000;
 
     const renderList = (containerId, key) => {
         const container = document.getElementById(containerId);
+        if (!container) return;
         container.innerHTML = '';
         (dbRadice.configurazioneTarget[key] || []).forEach((item, index) => {
             const div = document.createElement('div');
@@ -30,6 +34,18 @@ function renderizzaConfigurazioni() {
 
     aggiornaRiepilogoBudgetPagina1();
     aggiornaFooterVersione();
+}
+
+function salvaParametriEmergenza() {
+    const inputMesi = document.getElementById('config-mesi-emergenza');
+    const inputSoglia = document.getElementById('config-soglia-extra');
+    
+    if (inputMesi) dbRadice.configurazioneTarget.mesiEmergenza = parseInt(inputMesi.value) || 6;
+    if (inputSoglia) dbRadice.configurazioneTarget.sogliaExtraLiquidita = parseFloat(inputSoglia.value) || 0;
+    
+    salvaNelLocalStorage();
+    aggiornaRiepilogoBudgetPagina1();
+    if (typeof renderizzaVisualizzazioni === 'function') renderizzaVisualizzazioni();
 }
 
 function aggiornaFooterVersione() {
@@ -68,6 +84,7 @@ function toggleItemActive(key, index) {
 
 function addConfigItem(key) {
     const input = document.getElementById(`new-${key.replace('Nomi', 'Nome')}`);
+    if (!input) return;
     const val = input.value.trim();
     if (val) {
         dbRadice.configurazioneTarget[key].push({ nome: val, attivo: true });
@@ -88,7 +105,7 @@ function deleteConfigItem(key, index) {
 function addTargetItem(key) {
     const nomeIn = document.getElementById(`new-${key.slice(0, -1)}-nome`);
     const impIn = document.getElementById(`new-${key.slice(0, -1)}-importo`);
-    if (nomeIn.value.trim() && impIn.value) {
+    if (nomeIn && impIn && nomeIn.value.trim() && impIn.value) {
         dbRadice.configurazioneTarget[key].push({ nome: nomeIn.value.trim(), importo: parseFloat(impIn.value), attivo: true });
         nomeIn.value = ''; impIn.value = '';
         salvaNelLocalStorage();
@@ -99,6 +116,7 @@ function addTargetItem(key) {
 function renderizzaFormCampi() {
     const generaCampi = (containerId, key, prefix) => {
         const container = document.getElementById(containerId);
+        if (!container) return;
         container.innerHTML = '';
         (dbRadice.configurazioneTarget[key] || [])
             .filter(item => item.attivo)
@@ -138,8 +156,9 @@ function copiaUltimoMese() {
 }
 
 function salvaMese() {
-    const dataVal = document.getElementById('input-data').value;
-    if (!dataVal) { alert("Data non valida."); return; }
+    const dataInput = document.getElementById('input-data');
+    if (!dataInput || !dataInput.value) { alert("Data non valida."); return; }
+    const dataVal = dataInput.value;
 
     const raccogliValori = (prefix) => {
         const obj = {};
@@ -232,7 +251,7 @@ function renderizzaStoricoTabella() {
         const netto = totBanche + totInv - totDeb;
 
         let deltaMoM = 0;
-        let diffRisparmio = 0;
+        let performanceVal = 0;
         if (idxCrescente > 0) {
             const mPrec = ordinatiCrescenti[idxCrescente - 1];
             const bPrec = Object.values(mPrec.bancaDettaglio || {}).reduce((a,b) => a+b, 0);
@@ -241,7 +260,7 @@ function renderizzaStoricoTabella() {
             const nettoPrec = bPrec + iPrec - dPrec;
             
             deltaMoM = netto - nettoPrec;
-            diffRisparmio = deltaMoM - risparmioAttesoMensile;
+            performanceVal = deltaMoM - risparmioAttesoMensile;
         }
 
         const tr = document.createElement('tr');
@@ -252,7 +271,7 @@ function renderizzaStoricoTabella() {
             <td>${totDeb.toLocaleString()} €</td>
             <td style="font-weight:bold; color: ${netto >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${netto.toLocaleString()} €</td>
             <td style="color: ${deltaMoM >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${idxCrescente > 0 ? (deltaMoM >= 0 ? '+' : '') + deltaMoM.toLocaleString() + ' €' : '-'}</td>
-            <td style="color: ${diffRisparmio >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${idxCrescente > 0 ? (diffRisparmio >= 0 ? '+' : '') + diffRisparmio.toLocaleString() + ' €' : '-'}</td>
+            <td style="color: ${performanceVal >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">${idxCrescente > 0 ? (performanceVal >= 0 ? '+' : '') + performanceVal.toLocaleString() + ' €' : '-'}</td>
             <td>
                 <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" onclick="modificaMese(${originalIndex})">✏️</button>
                 <button class="btn-danger w-auto" style="padding:4px 8px; margin:0;" onclick="eliminaMese(${originalIndex})">🗑️</button>

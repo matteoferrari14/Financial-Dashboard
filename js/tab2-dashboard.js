@@ -3,6 +3,7 @@ let chartLiquiditaInstance = null;
 let chartInvestimentiStoricoInstance = null;
 let chartDebitiStoricoInstance = null;
 let chartSovrappostoInstance = null;
+let isSovrapposto = false;
 
 function inizializzaFiltriDateSeNecessario() {
     const dati = [...dbRadice.storicoMesi].sort((a,b) => new Date(a.data) - new Date(b.data));
@@ -20,6 +21,16 @@ function inizializzaFiltriDateSeNecessario() {
     if (endInput && !endInput.value) endInput.value = ultimaData;
     if (startDet && !startDet.value) startDet.value = primaData;
     if (endDet && !endDet.value) endDet.value = ultimaData;
+}
+
+function toggleLayoutGraficiDashboard() {
+    isSovrapposto = !isSovrapposto;
+    const btn = document.getElementById('btn-toggle-layout');
+    if (btn) {
+        btn.innerText = isSovrapposto ? "🔀 Grafici: Sovrapposti" : "🔀 Grafici: Separati";
+        btn.className = isSovrapposto ? "btn-primary" : "btn-secondary";
+    }
+    renderizzaVisualizzazioni();
 }
 
 function aggiornaFiltriCondivisi(tipo, valore) {
@@ -87,21 +98,10 @@ function valutaStatoLiquidita(liquiditaAttuale) {
     }
 }
 
-let isSovrapposto = false;
-
-function toggleLayoutGraficiDashboard() {
-    isSovrapposto = !isSovrapposto;
-    const btn = document.getElementById('btn-toggle-layout');
-    if (btn) {
-        btn.innerText = isSovrapposto ? "🔀 Grafici: Sovrapposti" : "🔀 Grafici: Separati";
-        btn.className = isSovrapposto ? "btn-primary" : "btn-secondary";
-    }
-    renderizzaVisualizzazioni();
-}
-
 function renderizzaVisualizzazioni() {
     const dati = OTTIENI_DATI_FILTRATI();
     const container = document.getElementById('container-grafici-dashboard');
+    const mode = document.getElementById('metric-mode')?.value || 'valore';
     if (!container) return;
 
     if (dati.length > 0) {
@@ -110,12 +110,38 @@ function renderizzaVisualizzazioni() {
         const totI = Object.values(ultimo.investimentiDettaglio || {}).reduce((a,b)=>a+b, 0);
         const totD = Object.values(ultimo.debiti || {}).reduce((a,b)=>a+b, 0);
 
-        document.getElementById('kpi-netto').innerText = (totB + totI - totD).toLocaleString() + " €";
-        document.getElementById('kpi-liquidita').innerText = totB.toLocaleString() + " €";
-        document.getElementById('kpi-investimenti').innerText = totI.toLocaleString() + " €";
-        document.getElementById('kpi-debiti').innerText = totD.toLocaleString() + " €";
+        const elNetto = document.getElementById('kpi-netto');
+        const elLiq = document.getElementById('kpi-liquidita');
+        const elInv = document.getElementById('kpi-investimenti');
+        const elDeb = document.getElementById('kpi-debiti');
+
+        if (elNetto) elNetto.innerText = (totB + totI - totD).toLocaleString() + " €";
+        if (elLiq) elLiq.innerText = totB.toLocaleString() + " €";
+        if (elInv) elInv.innerText = totI.toLocaleString() + " €";
+        if (elDeb) elDeb.innerText = totD.toLocaleString() + " €";
 
         valutaStatoLiquidita(totB);
+    }
+
+    let datiGrafico = [...dati];
+    if (mode === 'mom' && dati.length >= 2) {
+        let temp = [];
+        for (let i = 1; i < dati.length; i++) {
+            let mPrev = dati[i-1];
+            let mCurr = dati[i];
+            let netPrev = Object.values(mPrev.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(mPrev.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(mPrev.debiti||{}).reduce((a,b)=>a+b,0);
+            let netCurr = Object.values(mCurr.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(mCurr.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(mCurr.debiti||{}).reduce((a,b)=>a+b,0);
+            temp.push({ data: mCurr.data, bancaDettaglio: { MoM: netCurr - netPrev }, investimentiDettaglio: {}, debiti: {} });
+        }
+        datiGrafico = temp;
+    } else if (mode === 'delta' && dati.length >= 2) {
+        let base = dati[0];
+        let netBase = Object.values(base.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(base.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(base.debiti||{}).reduce((a,b)=>a+b,0);
+        let temp = dati.map(m => {
+            let netCurr = Object.values(m.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(m.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(m.debiti||{}).reduce((a,b)=>a+b,0);
+            return { data: m.data, bancaDettaglio: { Delta: netCurr - netBase }, investimentiDettaglio: {}, debiti: {} };
+        });
+        datiGrafico = temp;
     }
 
     if (isSovrapposto) {
@@ -125,7 +151,7 @@ function renderizzaVisualizzazioni() {
                 <div class="chart-container"><canvas id="chartSovrapposto"></canvas></div>
             </div>
         `;
-        renderizzaGraficoSovrapposto(dati);
+        renderizzaGraficoSovrapposto(datiGrafico);
     } else {
         container.innerHTML = `
             <div class="grid-2">
@@ -149,9 +175,9 @@ function renderizzaVisualizzazioni() {
                 </div>
             </div>
         `;
-        renderizzaGraficoPatrimonio(dati);
-        renderizzaGraficoLiquidita(dati);
-        renderizzaGraficoInvestimentiDebitiStorico(dati);
+        renderizzaGraficoPatrimonio(datiGrafico);
+        renderizzaGraficoLiquidita(datiGrafico);
+        renderizzaGraficoInvestimentiDebitiStorico(datiGrafico);
     }
 
     if (typeof renderizzaGraficiDettaglio === 'function') {
@@ -167,6 +193,8 @@ function renderizzaGraficoPatrimonio(dati) {
 
     const labels = dati.map(d => d.data);
     const netti = dati.map(d => {
+        if (d.bancaDettaglio && d.bancaDettaglio.MoM !== undefined) return d.bancaDettaglio.MoM;
+        if (d.bancaDettaglio && d.bancaDettaglio.Delta !== undefined) return d.bancaDettaglio.Delta;
         const b = Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0);
         const i = Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0);
         const deb = Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0);
