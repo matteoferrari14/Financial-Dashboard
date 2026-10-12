@@ -7,7 +7,9 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js & Zoom Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 
@@ -214,22 +216,22 @@
         <!-- UNICO RIQUADRO KPI OTTIMIZZATO -->
         <div class="card">
             <h2>Panoramica Patrimoniale</h2>
-            <div class="grid-4" style="margin-top: 15px;">
+            <div class="kpi-grid-unica" style="margin-top: 15px;">
                 <div>
                     <div class="kpi-title">Patrimonio Netto</div>
-                    <div class="kpi-value text-primary" id="kpi-netto">0 €</div>
+                    <div class="kpi-value text-primary" id="kpi-netto" style="font-size: 1.2rem;">0 €</div>
                 </div>
                 <div>
                     <div class="kpi-title">Liquidità Totale</div>
-                    <div class="kpi-value" style="color: #10b981;" id="kpi-liquidita">0 €</div>
+                    <div class="kpi-value" style="color: #10b981; font-size: 1.2rem;" id="kpi-liquidita">0 €</div>
                 </div>
                 <div>
                     <div class="kpi-title">Investimenti Totali</div>
-                    <div class="kpi-value" style="color: #f59e0b;" id="kpi-investimenti">0 €</div>
+                    <div class="kpi-value" style="color: #f59e0b; font-size: 1.2rem;" id="kpi-investimenti">0 €</div>
                 </div>
                 <div>
                     <div class="kpi-title">Debiti Totali</div>
-                    <div class="kpi-value" style="color: #ef4444;" id="kpi-debiti">0 €</div>
+                    <div class="kpi-value" style="color: #ef4444; font-size: 1.2rem;" id="kpi-debiti">0 €</div>
                 </div>
             </div>
         </div>
@@ -246,7 +248,7 @@
             </div>
             <div>
                 <label>Data Fine</label>
-                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('start', this.value)">
+                <input type="date" id="filter-date-end-det" onchange="aggiornaFiltriCondivisi('end', this.value)">
             </div>
             <div>
                 <label>Modalità Calcolo Metriche</label>
@@ -316,6 +318,7 @@
 
         <div class="card">
             <h2>Monitoraggio Rebalancing & Performance Asset</h2>
+            <div id="rebalancing-warning" class="banner-alert banner-warning" style="display:none;"></div>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
@@ -348,7 +351,7 @@
 
 </div>
 
-<!-- INCLUSIONE SCRIPTS MODULARI -->
+<!-- SCRIPTS MODULARI -->
 <script src="js/app.js"></script>
 <script src="js/tab1-gestione.js"></script>
 <script src="js/tab2-dashboard.js"></script>

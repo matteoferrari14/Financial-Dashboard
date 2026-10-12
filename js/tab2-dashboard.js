@@ -5,6 +5,11 @@ let chartDebitiStoricoInstance = null;
 let chartSovrappostoInstance = null;
 let isSovrapposto = false;
 
+// Somma dei valori di un ramo (banca/investimenti/debiti) di un mese
+function totaleBranca(m, ramo) {
+    return Object.values(m[ramo] || {}).reduce((a, x) => a + x, 0);
+}
+
 function inizializzaFiltriDateSeNecessario() {
     const dati = [...dbRadice.storicoMesi].sort((a,b) => new Date(a.data) - new Date(b.data));
     if (dati.length === 0) return;
@@ -125,23 +130,28 @@ function renderizzaVisualizzazioni() {
 
     let datiGrafico = [...dati];
     if (mode === 'mom' && dati.length >= 2) {
-        let temp = [];
+        // Variazione mensile (MoM) calcolata per singola branca,
+        // così ogni grafico mostra la sua variazione (niente linee a zero).
+        datiGrafico = [];
         for (let i = 1; i < dati.length; i++) {
-            let mPrev = dati[i-1];
-            let mCurr = dati[i];
-            let netPrev = Object.values(mPrev.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(mPrev.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(mPrev.debiti||{}).reduce((a,b)=>a+b,0);
-            let netCurr = Object.values(mCurr.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(mCurr.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(mCurr.debiti||{}).reduce((a,b)=>a+b,0);
-            temp.push({ data: mCurr.data, bancaDettaglio: { MoM: netCurr - netPrev }, investimentiDettaglio: {}, debiti: {} });
+            const mPrev = dati[i-1];
+            const mCurr = dati[i];
+            datiGrafico.push({
+                data: mCurr.data,
+                bancaDettaglio: { 'Var. Liquidità': totaleBranca(mCurr, 'bancaDettaglio') - totaleBranca(mPrev, 'bancaDettaglio') },
+                investimentiDettaglio: { 'Var. Investimenti': totaleBranca(mCurr, 'investimentiDettaglio') - totaleBranca(mPrev, 'investimentiDettaglio') },
+                debiti: { 'Var. Debiti': totaleBranca(mCurr, 'debiti') - totaleBranca(mPrev, 'debiti') }
+            });
         }
-        datiGrafico = temp;
     } else if (mode === 'delta' && dati.length >= 2) {
-        let base = dati[0];
-        let netBase = Object.values(base.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(base.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(base.debiti||{}).reduce((a,b)=>a+b,0);
-        let temp = dati.map(m => {
-            let netCurr = Object.values(m.bancaDettaglio||{}).reduce((a,b)=>a+b,0) + Object.values(m.investimentiDettaglio||{}).reduce((a,b)=>a+b,0) - Object.values(m.debiti||{}).reduce((a,b)=>a+b,0);
-            return { data: m.data, bancaDettaglio: { Delta: netCurr - netBase }, investimentiDettaglio: {}, debiti: {} };
-        });
-        datiGrafico = temp;
+        // Delta rispetto al primo mese del periodo filtrato, per singola branca
+        const base = dati[0];
+        datiGrafico = dati.map(m => ({
+            data: m.data,
+            bancaDettaglio: { 'Delta Liquidità': totaleBranca(m, 'bancaDettaglio') - totaleBranca(base, 'bancaDettaglio') },
+            investimentiDettaglio: { 'Delta Investimenti': totaleBranca(m, 'investimentiDettaglio') - totaleBranca(base, 'investimentiDettaglio') },
+            debiti: { 'Delta Debiti': totaleBranca(m, 'debiti') - totaleBranca(base, 'debiti') }
+        }));
     }
 
     if (isSovrapposto) {
@@ -185,29 +195,30 @@ function renderizzaVisualizzazioni() {
     }
 }
 
+// Configurazione zoom/pan/tooltip condivisa (definita in app.js)
+const zoomPanOptions = ZOOM_PAN_OPTIONS;
+
 function renderizzaGraficoPatrimonio(dati) {
     const canvas = document.getElementById('chartPatrimonio');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (chartPatrimonioInstance) chartPatrimonioInstance.destroy();
 
+    const mode = document.getElementById('metric-mode')?.value || 'valore';
+    const etichetta = mode === 'mom' ? 'Variazione Patrimonio Netto (€/mese)'
+                    : mode === 'delta' ? 'Delta Patrimonio Netto dal Periodo (€)'
+                    : 'Patrimonio Netto (€)';
+
     const labels = dati.map(d => d.data);
-    const netti = dati.map(d => {
-        if (d.bancaDettaglio && d.bancaDettaglio.MoM !== undefined) return d.bancaDettaglio.MoM;
-        if (d.bancaDettaglio && d.bancaDettaglio.Delta !== undefined) return d.bancaDettaglio.Delta;
-        const b = Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0);
-        const i = Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0);
-        const deb = Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0);
-        return b + i - deb;
-    });
+    const netti = dati.map(d => totaleBranca(d, 'bancaDettaglio') + totaleBranca(d, 'investimentiDettaglio') - totaleBranca(d, 'debiti'));
 
     chartPatrimonioInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{ label: 'Patrimonio Netto (€)', data: netti, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.2 }]
+            datasets: [{ label: etichetta, data: netti, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.2 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+        options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptions }
     });
 }
 
@@ -217,16 +228,21 @@ function renderizzaGraficoLiquidita(dati) {
     const ctx = canvas.getContext('2d');
     if (chartLiquiditaInstance) chartLiquiditaInstance.destroy();
 
+    const mode = document.getElementById('metric-mode')?.value || 'valore';
+    const etichetta = mode === 'mom' ? 'Variazione Liquidità (€/mese)'
+                    : mode === 'delta' ? 'Delta Liquidità dal Periodo (€)'
+                    : 'Liquidità Totale (€)';
+
     const labels = dati.map(d => d.data);
-    const liquidita = dati.map(d => Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0));
+    const liquidita = dati.map(d => totaleBranca(d, 'bancaDettaglio'));
 
     chartLiquiditaInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{ label: 'Liquidità Totale (€)', data: liquidita, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.2 }]
+            datasets: [{ label: etichetta, data: liquidita, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.2 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+        options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptions }
     });
 }
 
@@ -237,23 +253,31 @@ function renderizzaGraficoInvestimentiDebitiStorico(dati) {
     if (chartInvestimentiStoricoInstance) chartInvestimentiStoricoInstance.destroy();
     if (chartDebitiStoricoInstance) chartDebitiStoricoInstance.destroy();
 
+    const mode = document.getElementById('metric-mode')?.value || 'valore';
+    const etichettaInv = mode === 'mom' ? 'Variazione Investimenti (€/mese)'
+                       : mode === 'delta' ? 'Delta Investimenti dal Periodo (€)'
+                       : 'Investimenti Totali (€)';
+    const etichettaDeb = mode === 'mom' ? 'Variazione Debiti (€/mese)'
+                       : mode === 'delta' ? 'Delta Debiti dal Periodo (€)'
+                       : 'Debiti Totali (€)';
+
     const labels = dati.map(d => d.data);
-    const totInv = dati.map(d => Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0));
-    const totDeb = dati.map(d => Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0));
+    const totInv = dati.map(d => totaleBranca(d, 'investimentiDettaglio'));
+    const totDeb = dati.map(d => totaleBranca(d, 'debiti'));
 
     if (ctxInv) {
         chartInvestimentiStoricoInstance = new Chart(ctxInv, {
             type: 'line',
-            data: { labels: labels, datasets: [{ label: 'Investimenti Totali (€)', data: totInv, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.2 }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+            data: { labels: labels, datasets: [{ label: etichettaInv, data: totInv, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.2 }] },
+            options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptions }
         });
     }
 
     if (ctxDeb) {
         chartDebitiStoricoInstance = new Chart(ctxDeb, {
             type: 'line',
-            data: { labels: labels, datasets: [{ label: 'Debiti Totali (€)', data: totDeb, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.2 }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+            data: { labels: labels, datasets: [{ label: etichettaDeb, data: totDeb, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.2 }] },
+            options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptions }
         });
     }
 }
@@ -264,10 +288,16 @@ function renderizzaGraficoSovrapposto(dati) {
     const ctx = canvas.getContext('2d');
     if (chartSovrappostoInstance) chartSovrappostoInstance.destroy();
 
+    const mode = document.getElementById('metric-mode')?.value || 'valore';
+    const lblNetto = mode === 'mom' ? 'Var. Patrimonio Netto' : mode === 'delta' ? 'Delta Patrimonio Netto' : 'Patrimonio Netto';
+    const lblLiq   = mode === 'mom' ? 'Var. Liquidità'      : mode === 'delta' ? 'Delta Liquidità'      : 'Liquidità';
+    const lblInv   = mode === 'mom' ? 'Var. Investimenti'   : mode === 'delta' ? 'Delta Investimenti'   : 'Investimenti';
+    const lblDeb   = mode === 'mom' ? 'Var. Debiti'         : mode === 'delta' ? 'Delta Debiti'         : 'Debiti';
+
     const labels = dati.map(d => d.data);
-    const liquidita = dati.map(d => Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0));
-    const investimenti = dati.map(d => Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0));
-    const debiti = dati.map(d => Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0));
+    const liquidita = dati.map(d => totaleBranca(d, 'bancaDettaglio'));
+    const investimenti = dati.map(d => totaleBranca(d, 'investimentiDettaglio'));
+    const debiti = dati.map(d => totaleBranca(d, 'debiti'));
     const netto = dati.map((d, idx) => liquidita[idx] + investimenti[idx] - debiti[idx]);
 
     chartSovrappostoInstance = new Chart(ctx, {
@@ -275,12 +305,12 @@ function renderizzaGraficoSovrapposto(dati) {
         data: {
             labels: labels,
             datasets: [
-                { label: 'Patrimonio Netto', data: netto, borderColor: '#3b82f6', tension: 0.2 },
-                { label: 'Liquidità', data: liquidita, borderColor: '#10b981', tension: 0.2 },
-                { label: 'Investimenti', data: investimenti, borderColor: '#f59e0b', tension: 0.2 },
-                { label: 'Debiti', data: debiti, borderColor: '#ef4444', tension: 0.2 }
+                { label: lblNetto, data: netto, borderColor: '#3b82f6', tension: 0.2 },
+                { label: lblLiq, data: liquidita, borderColor: '#10b981', tension: 0.2 },
+                { label: lblInv, data: investimenti, borderColor: '#f59e0b', tension: 0.2 },
+                { label: lblDeb, data: debiti, borderColor: '#ef4444', tension: 0.2 }
             ]
         },
-        options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }, y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } } } }
+        options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptions }
     });
 }

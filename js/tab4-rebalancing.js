@@ -19,6 +19,12 @@ function salvaAssetSingolo() {
     dbRadice.dettaglioAssets.push(nuovoAsset);
     salvaNelLocalStorage();
 
+    // Validazione: la somma dei target di portafoglio dovrebbe essere 100%
+    const sommaTargetPct = dbRadice.dettaglioAssets.reduce((a,b) => a + (b.targetPct || 0), 0);
+    if (Math.abs(sommaTargetPct - 100) > 0.5) {
+        alert(`Attenzione: la somma dei target di portafoglio è ${sommaTargetPct.toFixed(1)}% (atteso 100%). Il piano di rebalancing potrebbe risultare sbilanciato.`);
+    }
+
     document.getElementById('asset-nome').value = '';
     document.getElementById('asset-isin').value = '';
     document.getElementById('asset-target-pct').value = '';
@@ -44,6 +50,18 @@ function renderizzaRebalancingTab() {
 
     const valoreTotalePortafoglio = assets.reduce((a,b) => a + (b.valorePortafoglio || 0), 0);
 
+    // Avviso quando la somma dei target non è 100%
+    const sommaTargetPct = assets.reduce((a,b) => a + (b.targetPct || 0), 0);
+    const warningEl = document.getElementById('rebalancing-warning');
+    if (warningEl) {
+        if (assets.length > 0 && Math.abs(sommaTargetPct - 100) > 0.5) {
+            warningEl.style.display = 'block';
+            warningEl.innerHTML = `⚠️ <strong>Attenzione:</strong> la somma dei target è <strong>${sommaTargetPct.toFixed(1)}%</strong> (atteso 100%). Il piano di rebalancing potrebbe risultare sbilanciato.`;
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+
     assets.forEach((item, idx) => {
         const pesoAttualePct = valoreTotalePortafoglio > 0 ? ((item.valorePortafoglio / valoreTotalePortafoglio) * 100) : 0;
         const valoreTargetEuro = (valoreTotalePortafoglio * (item.targetPct / 100));
@@ -52,8 +70,8 @@ function renderizzaRebalancingTab() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>
-                <strong>${item.nome}</strong>
-                ${item.isin ? `<br><small class="text-muted">${item.isin}</small>` : ''}
+                <strong>${escapeHtml(item.nome)}</strong>
+                ${item.isin ? `<br><small class="text-muted">${escapeHtml(item.isin)}</small>` : ''}
             </td>
             <td>${item.quotaPac.toLocaleString()} € / mese</td>
             <td>${item.valorePortafoglio.toLocaleString()} €</td>

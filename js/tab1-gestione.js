@@ -13,7 +13,7 @@ function renderizzaConfigurazioni() {
             const div = document.createElement('div');
             div.className = `config-item ${item.attivo ? '' : 'inactive'}`;
             div.innerHTML = `
-                <span>${item.nome} ${item.importo !== undefined ? `: <strong>${item.importo} €</strong>` : ''}</span>
+                <span>${escapeHtml(item.nome)} ${item.importo !== undefined ? `: <strong>${item.importo} €</strong>` : ''}</span>
                 <div>
                     <span class="toggle-switch ${item.attivo ? 'toggle-active' : 'toggle-inactive'}" 
                           onclick="toggleItemActive('${key}', ${index})">
@@ -53,7 +53,7 @@ function aggiornaFooterVersione() {
     document.querySelectorAll('.tab-content').forEach(tab => {
         const footer = document.createElement('div');
         footer.className = 'app-footer';
-        footer.innerText = 'Personal Finance Dashboard v1.3.3';
+        footer.innerText = 'Personal Finance Dashboard v' + VERSIONE_APP;
         tab.appendChild(footer);
     });
 }
@@ -123,8 +123,8 @@ function renderizzaFormCampi() {
             .forEach(item => {
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <label>${item.nome}</label>
-                    <input type="number" step="0.01" class="input-dynamic-${prefix}" data-nome="${item.nome}" placeholder="0.00">
+                    <label>${escapeHtml(item.nome)}</label>
+                    <input type="number" step="0.01" class="input-dynamic-${prefix}" data-nome="${escapeHtml(item.nome)}" placeholder="0.00">
                 `;
                 container.appendChild(div);
             });
@@ -212,18 +212,7 @@ function modificaMese(index) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-window.onload = function() {
-    caricaDaLocalStorage();
-    normalizzaConfigurazione();
-    renderizzaTutto();
-    
-    // Imposta la data odierna come default all'avvio
-    const inputData = document.getElementById('input-data');
-    if (inputData && !inputData.value) {
-        inputData.value = new Date().toISOString().split('T')[0];
-    }
-};
-
+// L'inizializzazione (window.onload) è unificata in app.js
 function annullaModifica() {
     document.getElementById('edit-index').value = "-1";
     document.getElementById('form-title').innerText = "Inserimento Nuovo Mese";

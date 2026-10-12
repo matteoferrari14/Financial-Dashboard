@@ -16,6 +16,9 @@ function renderizzaGraficiDettaglio(dati) {
     renderizzaGraficoRisparmioAttesoVsEffettivo(dati);
 }
 
+// Configurazione zoom/pan/tooltip condivisa (definita in app.js)
+const zoomPanOptionsDet = ZOOM_PAN_OPTIONS;
+
 function renderizzaGraficoDettaglioSingolo(canvasId, dati, ramoDati, mode) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -42,15 +45,7 @@ function renderizzaGraficoDettaglioSingolo(canvasId, dati, ramoDati, mode) {
         const inst = new Chart(ctx, {
             type: 'line',
             data: { labels: dati.map(d => d.data), datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-                },
-                plugins: { legend: { labels: { color: '#f8fafc' } } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptionsDet }
         });
 
         if (canvasId === 'chartDettaglioBanche') chartDettaglioBancheInstance = inst;
@@ -80,15 +75,7 @@ function renderizzaGraficoDettaglioSingolo(canvasId, dati, ramoDati, mode) {
                     backgroundColor: valoriCalcolati.map(v => v >= 0 ? '#10b981' : '#ef4444')
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-                },
-                plugins: { legend: { labels: { color: '#f8fafc' } } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptionsDet }
         });
 
         if (canvasId === 'chartDettaglioBanche') chartDettaglioBancheInstance = inst;
@@ -107,7 +94,7 @@ function renderizzaGraficoRisparmioAttesoVsEffettivo(dati) {
         chartRisparmioInstance = new Chart(ctx, {
             type: 'bar',
             data: { labels: ['Inserisci almeno 2 mesi di storico'], datasets: [{ label: 'Dati insufficienti', data: [0] }] },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptionsDet }
         });
         return;
     }
@@ -137,17 +124,10 @@ function renderizzaGraficoRisparmioAttesoVsEffettivo(dati) {
                 backgroundColor: differenziali.map(v => v >= 0 ? '#10b981' : '#ef4444')
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-            },
-            plugins: { legend: { labels: { color: '#f8fafc' } } }
-        }
+        options: { responsive: true, maintainAspectRatio: false, ...zoomPanOptionsDet }
     });
 }
+
 
 function calcolaNetto(d) {
     const b = Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0);

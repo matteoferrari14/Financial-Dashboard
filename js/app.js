@@ -1,3 +1,6 @@
+// Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
+const VERSIONE_APP = '1.3.4';
+
 let dbRadice = {
     configurazioneTarget: {
         redditi: [],
@@ -17,8 +20,10 @@ window.onload = function() {
     caricaDaLocalStorage();
     normalizzaConfigurazione();
     renderizzaTutto();
-    if(document.getElementById('input-data')) {
-        document.getElementById('input-data').valueAsDate = new Date();
+    // Imposta la data odierna come default all'avvio (solo se non già valorizzata)
+    const inputData = document.getElementById('input-data');
+    if (inputData && !inputData.value) {
+        inputData.value = new Date().toISOString().split('T')[0];
     }
 };
 
@@ -48,6 +53,39 @@ function normalizzaConfigurazione() {
     });
     if (!dbRadice.dettaglioAssets) dbRadice.dettaglioAssets = [];
     if (!dbRadice.configurazioneTarget.mesiEmergenza) dbRadice.configurazioneTarget.mesiEmergenza = 6;
+}
+
+// Configurazione condivisa zoom/pan/tooltip/colori per i grafici Chart.js
+const ZOOM_PAN_OPTIONS = {
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+        tooltip: { enabled: true, mode: 'index', intersect: false },
+        zoom: {
+            pan: { enabled: true, mode: 'x' },
+            zoom: {
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                mode: 'x',
+                scaleMode: 'y'
+            }
+        },
+        legend: { labels: { color: '#f8fafc' } }
+    },
+    scales: {
+        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+    }
+};
+
+// Escape dei caratteri HTML per prevenire XSS/injection quando i dati
+// (es. nomi importati da file) vengono iniettati nel DOM con innerHTML.
+function escapeHtml(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function switchTab(tabId) {
