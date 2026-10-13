@@ -330,6 +330,31 @@ tr:hover {
     border: 1px solid var(--accent-danger);
 }
 
+/* Riga ETF inattivo (Tab 4): escluso dalla valutazione ma ancora visibile */
+.etf-row-inactive td {
+    opacity: 0.55;
+    text-decoration: line-through;
+}
+
+/* Riga doppio input ETF (Valore + Versato) nel form mensile del Tab 1 */
+.etf-form-row {
+    display: flex;
+    gap: 8px;
+}
+.etf-form-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Input "Valore Attuale" modificabile inline nella tabella del Tab 4 */
+.input-valore-etf {
+    width: 110px !important;
+    display: inline-block !important;
+    margin-bottom: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 0.85rem !important;
+}
+
 /* BANNER LIQUIDITÀ (Tab 2) */
 .banner-alert {
     padding: 14px 18px;

@@ -103,8 +103,10 @@ function deleteConfigItem(key, index) {
 }
 
 function addTargetItem(key) {
-    const nomeIn = document.getElementById(`new-${key.slice(0, -1)}-nome`);
-    const impIn = document.getElementById(`new-${key.slice(0, -1)}-importo`);
+    // Il singolare non è sempre key senza l'ultima lettera (es. spese→spesa, redditi→reddito)
+    const singolare = { spese: 'spesa', redditi: 'reddito' }[key] || key.slice(0, -1);
+    const nomeIn = document.getElementById(`new-${singolare}-nome`);
+    const impIn = document.getElementById(`new-${singolare}-importo`);
     if (nomeIn && impIn && nomeIn.value.trim() && impIn.value) {
         dbRadice.configurazioneTarget[key].push({ nome: nomeIn.value.trim(), importo: parseFloat(impIn.value), attivo: true });
         nomeIn.value = ''; impIn.value = '';
@@ -133,22 +135,7 @@ function renderizzaFormCampi() {
     generaCampi('form-fields-banche', 'bancaNomi', 'banca');
     generaCampi('form-fields-investimenti', 'investimentiNomi', 'inv');
     generaCampi('form-fields-debiti', 'debitiNomi', 'deb');
-
-    // ETF configurati una volta (ISIN + quota) → valore misurato a ogni misurazione
-    const containerEtf = document.getElementById('form-fields-etf');
-    if (containerEtf) {
-        containerEtf.innerHTML = '';
-        (dbRadice.configurazioneTarget.etfs || [])
-            .filter(e => e.attivo)
-            .forEach(etf => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <label>${escapeHtml(etf.nome)} ${etf.isin ? `<small class="text-muted">(${escapeHtml(etf.isin)})</small>` : ''}</label>
-                    <input type="number" step="0.01" class="input-dynamic-etf" data-id="${etf.id}" placeholder="0.00">
-                `;
-                containerEtf.appendChild(div);
-            });
-    }
+    // I campi ETF (valore + versato) si registrano nella pagina 5 (tab5-etf-inserimenti.js)
 }
 
 function copiaUltimoMese() {
@@ -169,11 +156,7 @@ function copiaUltimoMese() {
     impostaValori('banca', ultimo.bancaDettaglio);
     impostaValori('inv', ultimo.investimentiDettaglio);
     impostaValori('deb', ultimo.debiti);
-
-    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
-        const id = input.dataset.id;
-        if (ultimo.etfValori && ultimo.etfValori[id] !== undefined) input.value = ultimo.etfValori[id];
-    });
+    // I dati ETF si copiano dalla pagina 5 (copiaUltimaMisurazioneETF)
 }
 
 function salvaMese() {
@@ -189,27 +172,33 @@ function salvaMese() {
         return obj;
     };
 
-    const etfValori = {};
-    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
-        etfValori[input.dataset.id] = parseFloat(input.value) || 0;
-    });
+    const editIdx = parseInt(document.getElementById('edit-index').value);
+
+    // Conserva i dati ETF eventualmente già registrati per questo mese (pagina 5):
+    // la pagina 1 gestisce solo saldi banca/investimenti/debiti.
+    let meseEsistente = null;
+    let idxEsistente = -1;
+    if (editIdx >= 0) {
+        idxEsistente = editIdx;
+        meseEsistente = dbRadice.storicoMesi[editIdx];
+    } else {
+        idxEsistente = dbRadice.storicoMesi.findIndex(m => m.data === dataVal);
+        if (idxEsistente >= 0) meseEsistente = dbRadice.storicoMesi[idxEsistente];
+    }
 
     const nuovoMese = {
         data: dataVal,
         bancaDettaglio: raccogliValori('banca'),
         investimentiDettaglio: raccogliValori('inv'),
         debiti: raccogliValori('deb'),
-        etfValori: etfValori
+        etfValori: (meseEsistente && meseEsistente.etfValori) || {},
+        etfVersamenti: (meseEsistente && meseEsistente.etfVersamenti) || {}
     };
 
-    const editIdx = parseInt(document.getElementById('edit-index').value);
-
-    if (editIdx >= 0) {
-        dbRadice.storicoMesi[editIdx] = nuovoMese;
+    if (idxEsistente >= 0) {
+        dbRadice.storicoMesi[idxEsistente] = nuovoMese;
     } else {
-        const esistente = dbRadice.storicoMesi.findIndex(m => m.data === dataVal);
-        if (esistente >= 0) dbRadice.storicoMesi[esistente] = nuovoMese;
-        else dbRadice.storicoMesi.push(nuovoMese);
+        dbRadice.storicoMesi.push(nuovoMese);
     }
 
     salvaNelLocalStorage();
@@ -235,11 +224,7 @@ function modificaMese(index) {
     impostaValori('banca', m.bancaDettaglio);
     impostaValori('inv', m.investimentiDettaglio);
     impostaValori('deb', m.debiti);
-
-    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
-        const id = input.dataset.id;
-        input.value = (m.etfValori && m.etfValori[id] !== undefined) ? m.etfValori[id] : '';
-    });
+    // I dati ETF si modificano dalla pagina 5 (modificaMisurazioneETF)
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -257,7 +242,8 @@ function annullaModifica() {
         inputData.value = new Date().toISOString().split('T')[0];
     }
     
-    document.querySelectorAll('input[class*="input-dynamic-"]').forEach(i => i.value = '');
+    // Azzera solo i campi della pagina 1 (i campi ETF di pagina 5 restano intatti)
+    document.querySelectorAll('#tab-gestione input[class*="input-dynamic-"]').forEach(i => i.value = '');
 }
 
 function eliminaMese(index) {

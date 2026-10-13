@@ -24,6 +24,7 @@
         <button class="tab-btn" onclick="switchTab('tab-dashboard')">2. Dashboard</button>
         <button class="tab-btn" onclick="switchTab('tab-dettagli')">3. Vista Dettagliata</button>
         <button class="tab-btn" onclick="switchTab('tab-rebalancing')">4. Asset & Rebalancing</button>
+        <button class="tab-btn" onclick="switchTab('tab-etf-inserimenti')">5. ETF - Inserimenti</button>
     </div>
 
     <!-- TAB 1: GESTIONE & INSERIMENTO -->
@@ -139,8 +140,6 @@
                     <div id="form-fields-banche"></div>
                     <h3>Saldi Investimenti</h3>
                     <div id="form-fields-investimenti"></div>
-                    <h3>ETF / Strumenti in Portafoglio</h3>
-                    <div id="form-fields-etf"></div>
                 </div>
                 <div>
                     <h3>Saldi Debiti / Passività</h3>
@@ -290,7 +289,7 @@
                 <h2>Configurazione ETF in Portafoglio</h2>
                 <button class="btn-secondary w-auto" onclick="sincronizzaTuttiETF()">🔄 Sincronizza tutti (online)</button>
             </div>
-            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (ISIN + quota di allocazione %). La somma delle quote deve dare 100%. Il valore corrente di ogni ETF si inserisce a ogni misurazione nel Tab 1; qui si monitora lo scostamento dall'atteso.</p>
+            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (nome + ISIN + quota di versamento mensile in €). Il peso target si ricava automaticamente dalle quote mensili (es. 50€ su 200€/mese → 25%). Il valore corrente di ogni ETF si inserisce a ogni misurazione nella pagina 5 (ETF - Inserimenti); qui si monitora lo scostamento dall'atteso. Un ETF può essere escluso dalla valutazione col toggle Attivo/Inattivo (come le spese di pagina 1).</p>
 
             <div class="grid-2">
                 <div>
@@ -302,9 +301,10 @@
 
                     <label>Ticker (per API, se noto)</label>
                     <input type="text" id="asset-ticker" placeholder="es. VWCE">
+                    <p class="text-muted" style="font-size:0.75rem; margin-top:-6px;">Facoltativo: simbolo di Borsa (es. VWCE). Serve solo per la sincronizzazione geografica; se vuoto viene ricavato automaticamente dall'ISIN.</p>
 
-                    <label>Quota di Allocazione (%)</label>
-                    <input type="number" id="asset-quota-pct" placeholder="es. 40" step="0.1">
+                    <label>Quota di Versamento Mensile (€)</label>
+                    <input type="number" id="asset-quota-mensile" placeholder="es. 100" step="0.01" min="0">
 
                     <input type="hidden" id="asset-edit-index" value="-1">
                     <div class="flex-gap mt-15">
@@ -322,18 +322,30 @@
         </div>
 
         <div class="card">
-            <h2>Monitoraggio Rebalancing & Performance Asset</h2>
-            <p class="text-muted" style="font-size:0.8rem;">Valori attuali = ultima misurazione salvata (Tab 1). Riallocazione = € necessari a portare il peso attuale alla quota di allocazione.</p>
+            <h2>Monitoraggio Allocazione & Rebalancing ETF</h2>
+            <p class="text-muted" style="font-size:0.8rem;">Il peso target deriva dalla quota di versamento mensile (es. 50€ su 200€/mese → 25%). Il peso attuale si calcola sull'ultima misurazione salvata (pagina 5, ETF - Inserimenti) usando solo gli ETF attivi: questa pagina è indipendente dal resto del portafoglio.</p>
+            <div class="grid-2" style="align-items:end;">
+                <div>
+                    <label>Soglia di scostamento (%, unica per tutti gli ETF)</label>
+                    <input type="number" id="soglia-scostamento-etf" placeholder="es. 10" step="0.5" min="0" onchange="salvaSogliaScostamento()">
+                    <p class="text-muted" style="font-size:0.75rem;">Warning quando il peso attuale si discosta dal target di oltre questa % <em>del target stesso</em> (es. target 25%, soglia 10% → warning se peso attuale fuori da 22,5%–27,5%).</p>
+                </div>
+                <div style="text-align:right;">
+                    <button class="btn-primary" onclick="calcolaRibilanciamento()">⚖️ Calcola Ribilanciamento (solo acquisti)</button>
+                </div>
+            </div>
             <div id="rebalancing-warning" class="banner-alert banner-warning" style="display:none;"></div>
+            <div id="rebalancing-result" class="banner-alert banner-info" style="display:none;"></div>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Asset</th>
-                            <th>Allocazione Attesa %</th>
+                            <th>Quota Mensile</th>
+                            <th>Peso Target %</th>
                             <th>Valore Attuale</th>
-                            <th>Allocazione Attuale %</th>
-                            <th>Riallocazione (€)</th>
+                            <th>Peso Attuale %</th>
+                            <th>Scostamento</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>
@@ -346,11 +358,36 @@
             <div class="card">
                 <h2>Esposizione Geografica Totale Ponderata</h2>
                 <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
-                <p class="text-muted" style="font-size:0.8rem;">Ponderata sulle quote di allocazione. Se gli ETF non sono sincronizzati, il grafico resta vuoto (nessun dato fittizio).</p>
+                <p class="text-muted" style="font-size:0.8rem;">Ponderata sui pesi target (da quote mensili). Se gli ETF non sono sincronizzati, il grafico resta vuoto (nessun dato fittizio).</p>
             </div>
             <div class="card">
-                <h2>Quota di Allocazione per Asset (%)</h2>
+                <h2>Peso Target vs Attuale per Asset (%)</h2>
                 <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Performance ETF — Rendimento al netto del PAC</h2>
+            <p class="text-muted" style="font-size:0.8rem;">Il rendimento è la differenza tra valore di mercato e capitale complessivamente versato: così si scorpora l'effetto del piano di accumulo. I versamenti si registrano nella pagina 5 (campo "Versato") a ogni misurazione.</p>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ETF</th>
+                            <th>Capitale Versato</th>
+                            <th>Valore Attuale</th>
+                            <th>Rendimento (€)</th>
+                            <th>Rendimento (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-performance-etf-body"></tbody>
+                </table>
+            </div>
+            <div class="grid-2 mt-15">
+                <div>
+                    <label>ETF da visualizzare</label>
+                    <select id="select-etf-performance" onchange="selezionaEtfPerformance()"></select>
+                </div>
+                <div class="chart-container"><canvas id="chartPerformanceEtf"></canvas></div>
             </div>
         </div>
         <!-- MODAL: allocazione geografica del singolo ETF -->
@@ -379,6 +416,42 @@
         </div>
     </div>
 
+    <!-- TAB 5: INSERIMENTI ETF (misurazioni mensili valore + versato PAC) -->
+    <div id="tab-etf-inserimenti" class="tab-content">
+        <div class="card">
+            <div class="flex-between">
+                <h2>Inserimento Misurazione ETF</h2>
+                <button class="btn-secondary w-auto" onclick="copiaUltimaMisurazioneETF()">📋 Copia da ultima misurazione</button>
+            </div>
+            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. I dati confluiscono nella stessa misurazione mensile della pagina 1 (stessa data): monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente.</p>
+            <div style="max-width:250px;">
+                <label>Data Misurazione</label>
+                <input type="date" id="input-data-etf">
+            </div>
+            <div class="mt-15" id="form-fields-etf"></div>
+            <div class="flex-gap mt-15">
+                <button class="btn-success" onclick="salvaMisurazioneETF()">Salva Misurazione ETF</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Storico Misurazioni ETF</h2>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Valore Tot. ETF</th>
+                            <th>Versato Tot. (PAC)</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-storico-etf-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- SCRIPTS MODULARI -->
@@ -387,5 +460,6 @@
 <script src="js/tab2-dashboard.js"></script>
 <script src="js/tab3-dettagli.js"></script>
 <script src="js/tab4-rebalancing.js"></script>
+<script src="js/tab5-etf-inserimenti.js"></script>
 </body>
 </html>

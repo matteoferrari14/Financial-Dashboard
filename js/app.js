@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.4.0';
+const VERSIONE_APP = '1.6.1';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -12,7 +12,8 @@ let dbRadice = {
         etfs: [],
         fmpApiKey: '',
         mesiEmergenza: 6,
-        sogliaExtraLiquidita: 5000
+        sogliaExtraLiquidita: 5000,
+        sogliaScostamentoEtf: 10
     },
     storicoMesi: [],
     dettaglioAssets: []
@@ -26,6 +27,10 @@ window.onload = function() {
     const inputData = document.getElementById('input-data');
     if (inputData && !inputData.value) {
         inputData.value = new Date().toISOString().split('T')[0];
+    }
+    const inputDataEtf = document.getElementById('input-data-etf');
+    if (inputDataEtf && !inputDataEtf.value) {
+        inputDataEtf.value = new Date().toISOString().split('T')[0];
     }
 };
 
@@ -58,6 +63,9 @@ function normalizzaConfigurazione() {
     // Chiave API FMP per l'allocazione geografica (opzionale, salvata solo in locale)
     if (typeof dbRadice.configurazioneTarget.fmpApiKey !== 'string') dbRadice.configurazioneTarget.fmpApiKey = '';
 
+    // Soglia di scostamento % (unica per tutti gli ETF) per i warning del Tab 4
+    if (typeof dbRadice.configurazioneTarget.sogliaScostamentoEtf !== 'number' || isNaN(dbRadice.configurazioneTarget.sogliaScostamentoEtf)) dbRadice.configurazioneTarget.sogliaScostamentoEtf = 10;
+
     // Migrazione (v1.4.0): dettaglioAssets → configurazioneTarget.etfs (ISIN + quota di allocazione %).
     // I valori correnti ora appartengono alle misurazioni mensili (storicoMesi.etfValori).
     if (!Array.isArray(dbRadice.configurazioneTarget.etfs)) {
@@ -67,6 +75,7 @@ function normalizzaConfigurazione() {
             nome: a.nome || 'ETF',
             isin: a.isin || '',
             quotaPct: a.quotaPct || a.targetPct || 0,
+            quotaMensile: 0,
             attivo: true,
             geo: null,
             ticker: a.ticker || undefined
@@ -87,6 +96,7 @@ function normalizzaConfigurazione() {
     // Normalizzazione voci ETF
     (dbRadice.configurazioneTarget.etfs || []).forEach(e => {
         if (e.quotaPct === undefined) e.quotaPct = 0;
+        if (e.quotaMensile === undefined) e.quotaMensile = 0;
         if (e.attivo === undefined) e.attivo = true;
         if (e.geo === undefined) e.geo = null;
         if (e.isin === undefined) e.isin = '';
@@ -149,6 +159,9 @@ function switchTab(tabId) {
         renderizzaVisualizzazioni();
     } else if (tabId === 'tab-rebalancing') {
         renderizzaRebalancingTab();
+    } else if (tabId === 'tab-etf-inserimenti') {
+        if (typeof renderizzaFormEtf === 'function') renderizzaFormEtf();
+        if (typeof renderizzaStoricoETF === 'function') renderizzaStoricoETF();
     }
 }
 
@@ -156,6 +169,8 @@ function renderizzaTutto() {
     if (typeof renderizzaConfigurazioni === 'function') renderizzaConfigurazioni();
     if (typeof renderizzaFormCampi === 'function') renderizzaFormCampi();
     if (typeof renderizzaStoricoTabella === 'function') renderizzaStoricoTabella();
+    if (typeof renderizzaFormEtf === 'function') renderizzaFormEtf();
+    if (typeof renderizzaStoricoETF === 'function') renderizzaStoricoETF();
     if (typeof renderizzaVisualizzazioni === 'function') renderizzaVisualizzazioni();
     if (typeof renderizzaRebalancingTab === 'function') renderizzaRebalancingTab();
 }

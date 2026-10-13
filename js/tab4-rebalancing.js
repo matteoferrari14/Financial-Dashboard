@@ -1,6 +1,8 @@
-// ===== TAB 4: ASSET & REBALANCING (v1.4.0) =====
-// Architettura: gli ETF si configurano UNA volta (ISIN + quota di allocazione %).
-// Il valore corrente si misura a ogni misurazione nel Tab 1 (storicoMesi.etfValori).
+// ===== TAB 4: ASSET & REBALANCING (v1.5.0) =====
+// Architettura: gli ETF si configurano UNA volta (nome + ISIN + quota di versamento
+// mensile in €). Il peso target deriva dalle quote mensili (es. 50€ su 200€/mese = 25%).
+// Il valore corrente si misura a ogni misurazione nella pagina 5 (storicoMesi.etfValori).
+// La pagina 4 è slegata dalle altre: i pesi si calcolano SOLO sugli ETF attivi.
 // L'allocazione geografica proviene dall'API FMP (etf-country-distribution),
 // senza fallback benchmark: se non sincronizzata i dati restano vuoti.
 
@@ -8,24 +10,26 @@ let chartGeoBreakdownInstance = null;
 let chartPerformanceAssetsInstance = null;
 let popupChartInstance = null;
 let popupEtfId = null;
+let chartPerformanceEtfInstance = null;
 
 // ---------- Configurazione ETF: salva / modifica / elimina ----------
 
 function salvaETF() {
     const nome = document.getElementById('asset-nome').value.trim();
     const isin = document.getElementById('asset-isin').value.trim().toUpperCase();
-    const quotaPct = parseFloat(document.getElementById('asset-quota-pct').value) || 0;
+    const quotaMensile = parseFloat(document.getElementById('asset-quota-mensile').value) || 0;
     const ticker = document.getElementById('asset-ticker').value.trim();
 
     if (!nome) { alert("Inserisci il nome dell'ETF."); return; }
     if (!isin) { alert("Inserisci l'ISIN dell'ETF (necessario per la sincronizzazione geografica)."); return; }
+    if (quotaMensile < 0) { alert("La quota di versamento mensile non può essere negativa."); return; }
 
     const etfs = dbRadice.configurazioneTarget.etfs || [];
     const editIdx = parseInt(document.getElementById('asset-edit-index').value);
 
     if (editIdx >= 0 && etfs[editIdx]) {
         const prec = etfs[editIdx];
-        etfs[editIdx] = { ...prec, nome, isin, quotaPct, ticker: ticker || prec.ticker };
+        etfs[editIdx] = { ...prec, nome, isin, quotaMensile, ticker: ticker || prec.ticker };
         if (prec.isin !== isin) {
             // ISIN cambiato: i dati geografici sincronizzati non valgono più
             etfs[editIdx].geo = null;
@@ -33,16 +37,10 @@ function salvaETF() {
             etfs[editIdx].ticker = ticker || undefined;
         }
     } else {
-        etfs.push({ id: Date.now(), nome, isin, quotaPct, ticker: ticker || undefined, attivo: true, geo: null });
+        etfs.push({ id: Date.now(), nome, isin, quotaMensile, ticker: ticker || undefined, attivo: true, geo: null });
     }
 
     salvaNelLocalStorage();
-
-    const sommaQuote = etfs.reduce((a, e) => a + (e.quotaPct || 0), 0);
-    if (Math.abs(sommaQuote - 100) > 0.5) {
-        alert(`Attenzione: la somma delle quote di allocazione è ${sommaQuote.toFixed(1)}% (atteso 100%). L'asset allocation potrebbe risultare sbilanciata.`);
-    }
-
     annullaModificaETF();
     renderizzaTutto();
 }
@@ -52,7 +50,7 @@ function annullaModificaETF() {
     document.getElementById('asset-nome').value = '';
     document.getElementById('asset-isin').value = '';
     document.getElementById('asset-ticker').value = '';
-    document.getElementById('asset-quota-pct').value = '';
+    document.getElementById('asset-quota-mensile').value = '';
     const btn = document.getElementById('btn-save-etf');
     if (btn) btn.innerText = 'Salva ETF';
     const btnCancel = document.getElementById('btn-cancel-etf-edit');
@@ -66,7 +64,7 @@ function modificaETF(index) {
     document.getElementById('asset-nome').value = etf.nome;
     document.getElementById('asset-isin').value = etf.isin || '';
     document.getElementById('asset-ticker').value = etf.ticker || '';
-    document.getElementById('asset-quota-pct').value = etf.quotaPct || '';
+    document.getElementById('asset-quota-mensile').value = etf.quotaMensile || '';
     const btn = document.getElementById('btn-save-etf');
     if (btn) btn.innerText = 'Aggiorna ETF';
     const btnCancel = document.getElementById('btn-cancel-etf-edit');
@@ -82,80 +80,336 @@ function eliminaETF(index) {
     }
 }
 
+function toggleETF(index) {
+    const etfs = dbRadice.configurazioneTarget.etfs || [];
+    if (!etfs[index]) return;
+    etfs[index].attivo = !etfs[index].attivo;
+    salvaNelLocalStorage();
+    renderizzaTutto();
+}
+
+function salvaSogliaScostamento() {
+    const input = document.getElementById('soglia-scostamento-etf');
+    const val = input ? parseFloat(input.value) : NaN;
+    dbRadice.configurazioneTarget.sogliaScostamentoEtf = (!isNaN(val) && val >= 0) ? val : 10;
+    salvaNelLocalStorage();
+    renderizzaRebalancingTab();
+}
+
+function etfAttivi() {
+    return (dbRadice.configurazioneTarget.etfs || []).filter(e => e.attivo);
+}
+
+// Valori correnti degli ETF (ultima misurazione dalla pagina 5, inclusi gli inattivi: restano visibili)
+function valoriCorrentiETF() {
+    const ultimo = ultimoMeseMisurato();
+    const valori = {};
+    (dbRadice.configurazioneTarget.etfs || []).forEach(e => {
+        valori[e.id] = (ultimo && ultimo.etfValori && ultimo.etfValori[e.id] !== undefined) ? ultimo.etfValori[e.id] : 0;
+    });
+    return valori;
+}
+
+// Peso target % derivato dalle quote mensili degli ETF ATTIVI (somma = 100%)
+function pesiTargetETF(etfs) {
+    const somma = etfs.reduce((a, e) => a + (e.quotaMensile || 0), 0);
+    const mappa = {};
+    etfs.forEach(e => {
+        mappa[e.id] = somma > 0 ? ((e.quotaMensile || 0) / somma) * 100 : 0;
+    });
+    return mappa;
+}
+
 // ---------- Monitoraggio rebalancing ----------
 
 function renderizzaRebalancingTab() {
-    const etfs = dbRadice.configurazioneTarget.etfs || [];
     const tbody = document.getElementById('table-assets-body');
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const ultimo = ultimoMeseMisurato();
-    const valori = {};
-    etfs.forEach(e => {
-        valori[e.id] = (ultimo && ultimo.etfValori && ultimo.etfValori[e.id] !== undefined) ? ultimo.etfValori[e.id] : 0;
-    });
-    const valoreTotale = Object.values(valori).reduce((a, v) => a + v, 0);
+    const inputSoglia = document.getElementById('soglia-scostamento-etf');
+    if (inputSoglia && (inputSoglia.value === '' || inputSoglia.value === null)) inputSoglia.value = dbRadice.configurazioneTarget.sogliaScostamentoEtf;
 
-    const sommaQuote = etfs.reduce((a, e) => a + (e.quotaPct || 0), 0);
+    const etfs = dbRadice.configurazioneTarget.etfs || [];
+    const attivi = etfAttivi();
+    const valori = valoriCorrentiETF();
+    const pesiTarget = pesiTargetETF(attivi);
+
+    // Capitale investito = SOLO il valore degli ETF attivi (pagina slegata dalle altre)
+    const totaleInvestito = attivi.reduce((a, e) => a + (valori[e.id] || 0), 0);
+
+    const soglia = dbRadice.configurazioneTarget.sogliaScostamentoEtf;
     const warningEl = document.getElementById('rebalancing-warning');
-    if (warningEl) {
-        if (etfs.length > 0 && Math.abs(sommaQuote - 100) > 0.5) {
-            warningEl.style.display = 'block';
-            warningEl.innerHTML = `⚠️ <strong>Attenzione:</strong> la somma delle quote di allocazione è <strong>${sommaQuote.toFixed(1)}%</strong> (atteso 100%). L'asset allocation potrebbe risultare sbilanciata.`;
-        } else {
-            warningEl.style.display = 'none';
-        }
-    }
+    const fuoriSoglia = [];
 
-    etfs.forEach((etf, idx) => {
-        const quotaAttesa = etf.quotaPct || 0;
+    etfs.forEach((etf) => {
+        const attivo = !!etf.attivo;
+        const pesoTarget = attivo ? (pesiTarget[etf.id] || 0) : 0;
         const valoreAttuale = valori[etf.id] || 0;
-        const pesoAttualePct = valoreTotale > 0 ? (valoreAttuale / valoreTotale) * 100 : 0;
-        const scostamentoPp = pesoAttualePct - quotaAttesa;
-        const valoreTargetEuro = valoreTotale * (quotaAttesa / 100);
-        const riallocazioneEuro = valoreTargetEuro - valoreAttuale;
+        const pesoAttualePct = (attivo && totaleInvestito > 0) ? (valoreAttuale / totaleInvestito) * 100 : 0;
+        const diffPp = pesoAttualePct - pesoTarget;
+        // Banda = soglia % del target (relativa al singolo ETF, NON al portafoglio)
+        const banda = (soglia / 100) * pesoTarget;
+        const inSoglia = Math.abs(diffPp) <= banda;
+        if (attivo && !inSoglia) fuoriSoglia.push({ etf, pesoTarget, pesoAttualePct, diffPp });
+
+        // Freccia di stato accanto al peso attuale (▲ sopra, ▼ sotto, = in target entro ±2 p.p.)
+        let freccia = '=';
+        let colFreccia = 'var(--text-muted)';
+        if (diffPp > 2) { freccia = '▲'; colFreccia = 'var(--accent-success)'; }
+        else if (diffPp < -2) { freccia = '▼'; colFreccia = 'var(--accent-danger)'; }
+
+        let tdValore = `${valoreAttuale.toLocaleString()} €`;
+        if (attivo) {
+            tdValore = `<input type="number" step="0.01" min="0" class="input-valore-etf" data-id="${etf.id}" value="${valoreAttuale || ''}" title="Modifica il valore corrente (salva sull'ultima misurazione della pagina 5)" onchange="aggiornaValoreEtf(this)"> €`;
+        }
 
         const tr = document.createElement('tr');
+        tr.className = attivo ? '' : 'etf-row-inactive';
         tr.innerHTML = `
             <td>
                 <strong>${escapeHtml(etf.nome)}</strong>
                 <br><small class="text-muted">${escapeHtml(etf.isin || '')}${etf.ticker ? ' · ' + escapeHtml(etf.ticker) : ''}</small>
+                ${attivo ? '' : '<br><small class="text-muted">escluso dalla valutazione</small>'}
             </td>
-            <td>${quotaAttesa.toFixed(1)} %</td>
-            <td>${valoreAttuale.toLocaleString()} €</td>
-            <td style="color: ${Math.abs(scostamentoPp) > 0.5 ? 'var(--accent-warning)' : 'var(--accent-success)'}">
-                ${pesoAttualePct.toFixed(1)} %
-                <small class="text-muted">(${scostamentoPp >= 0 ? '+' : ''}${scostamentoPp.toFixed(1)} p.p. vs atteso)</small>
-            </td>
-            <td style="font-weight:bold; color: ${riallocazioneEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'}">
-                ${riallocazioneEuro >= 0 ? 'Aggiungi ' : 'Riduci '}${Math.abs(Math.round(riallocazioneEuro)).toLocaleString()} €
-            </td>
+            <td>${(etf.quotaMensile || 0).toLocaleString()} €</td>
+            <td>${attivo ? pesoTarget.toFixed(1) + ' %' : '—'}</td>
+            <td>${tdValore}</td>
+            <td>${attivo ? `<span style="font-weight:bold; color: ${colFreccia};">${freccia}</span> ${pesoAttualePct.toFixed(1)} %` : '—'}</td>
+            <td>${attivo ? `<span style="color: ${inSoglia ? 'var(--accent-success)' : 'var(--accent-warning)'};">${diffPp >= 0 ? '+' : ''}${diffPp.toFixed(1)} p.p.</span> ${inSoglia ? '' : '⚠️'}` : '—'}</td>
             <td>
+                <span class="toggle-switch ${attivo ? 'toggle-active' : 'toggle-inactive'}" onclick="toggleETF(${etfs.indexOf(etf)})">${attivo ? 'Attivo' : 'Inattivo'}</span>
                 <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" title="Allocazione geografica (popup)" onclick="apriPopupETF(${etf.id})">🌐</button>
-                <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" title="Modifica ETF" onclick="modificaETF(${idx})">✏️</button>
-                <button class="btn-danger w-auto" style="padding:4px 8px; margin:0;" title="Elimina ETF" onclick="eliminaETF(${idx})">🗑️</button>
+                <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" title="Modifica ETF" onclick="modificaETF(${etfs.indexOf(etf)})">✏️</button>
+                <button class="btn-danger w-auto" style="padding:4px 8px; margin:0;" title="Elimina ETF" onclick="eliminaETF(${etfs.indexOf(etf)})">🗑️</button>
             </td>
         `;
         tbody.appendChild(tr);
     });
 
-    renderizzaGraficoGeografico(etfs);
-    renderizzaGraficoQuotaPac(etfs);
+    if (warningEl) {
+        if (fuoriSoglia.length > 0) {
+            warningEl.style.display = 'block';
+            warningEl.innerHTML = `⚠️ <strong>Warning allocazione (soglia ${soglia}% del target):</strong> ${fuoriSoglia.map(f => `<strong>${escapeHtml(f.etf.nome)}</strong> al ${f.pesoAttualePct.toFixed(1)}% (target ${f.pesoTarget.toFixed(1)}%)`).join(' · ')}.`;
+        } else {
+            warningEl.style.display = 'none';
+        }
+    }
+
+    renderizzaGraficoGeografico(attivi);
+    renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget);
+    renderizzaPerformanceETF();
 }
 
-function renderizzaGraficoQuotaPac(etfs) {
+// Ribilanciamento SOLO-ACQUISTI (nessuna vendita): trova il capitale minimo da
+// aggiungere per riportare ogni ETF attivo al peso target.
+// T* = max(V_i / w_i); aggiunta_i = w_i * T* - V_i (>= 0; il più sovraponderato ha 0).
+function calcolaRibilanciamento() {
+    const resultEl = document.getElementById('rebalancing-result');
+    if (!resultEl) return;
+
+    const attivi = etfAttivi().filter(e => (e.quotaMensile || 0) > 0);
+    if (attivi.length === 0) {
+        resultEl.className = 'banner-alert banner-warning';
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '⚠️ Nessun ETF attivo con quota di versamento mensile > 0: impossibile calcolare il ribilanciamento.';
+        return;
+    }
+
+    const valori = valoriCorrentiETF();
+    const totaleCorrente = attivi.reduce((a, e) => a + (valori[e.id] || 0), 0);
+    if (totaleCorrente <= 0) {
+        resultEl.className = 'banner-alert banner-warning';
+        resultEl.style.display = 'block';
+        resultEl.innerHTML = '⚠️ Nessuna misurazione disponibile per gli ETF attivi: inserisci i valori correnti nella pagina 5 (ETF - Inserimenti) prima di calcolare il ribilanciamento.';
+        return;
+    }
+
+    const sommaQuote = attivi.reduce((a, e) => a + (e.quotaMensile || 0), 0);
+    let T = 0;
+    attivi.forEach(e => {
+        const w = (e.quotaMensile || 0) / sommaQuote;
+        const V = valori[e.id] || 0;
+        if (w > 0 && V / w > T) T = V / w;
+    });
+
+    const piano = attivi.map(e => {
+        const w = (e.quotaMensile || 0) / sommaQuote;
+        const V = valori[e.id] || 0;
+        const aggiungi = Math.max(0, w * T - V);
+        const nuovoValore = V + aggiungi;
+        const nuovoPeso = T > 0 ? (nuovoValore / T) * 100 : 0;
+        return { nome: e.nome, V, w, aggiungi, nuovoValore, nuovoPeso };
+    });
+
+    const totaleDaVersare = piano.reduce((a, p) => a + p.aggiungi, 0);
+
+    let html = `<strong>⚖️ Piano di ribilanciamento (solo acquisti, nessuna vendita):</strong> versa complessivamente <strong>${totaleDaVersare.toLocaleString()} €</strong> per portare il portafoglio ETF da <strong>${totaleCorrente.toLocaleString()} €</strong> a <strong>${T.toLocaleString()} €</strong>, riportando ogni ETF al suo peso target.<br><br>`;
+    piano.forEach(p => {
+        const pesoCorrentePct = totaleCorrente > 0 ? (p.V / totaleCorrente) * 100 : 0;
+        if (p.aggiungi > 0) {
+            html += `➤ <strong>${escapeHtml(p.nome)}</strong>: versa <strong>${p.aggiungi.toLocaleString()} €</strong> (peso da ${pesoCorrentePct.toFixed(1)}% a ${p.nuovoPeso.toFixed(1)}%)<br>`;
+        } else {
+            html += `➤ <strong>${escapeHtml(p.nome)}</strong>: <strong>nessuna aggiunta</strong> (vincolo: è l'ETF più sovraponderato; peso ${pesoCorrentePct.toFixed(1)}%)<br>`;
+        }
+    });
+
+    const esclusi = etfAttivi().filter(e => (e.quotaMensile || 0) <= 0);
+    if (esclusi.length > 0) {
+        html += `<br><small class="text-muted">Esclusi dal calcolo perché senza quota mensile (non ribilanciabili senza vendite): ${esclusi.map(e => escapeHtml(e.nome)).join(', ')}.</small>`;
+    }
+
+    resultEl.className = 'banner-alert banner-info';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = html;
+}
+
+// Aggiorna il "Valore Attuale" di un ETF direttamente dal Tab 4:
+// salva sull'ultima misurazione della pagina 5 (storicoMesi.etfValori).
+function aggiornaValoreEtf(input) {
+    const id = input.dataset.id;
+    const val = parseFloat(input.value);
+    if (isNaN(val) || val < 0) { renderizzaRebalancingTab(); return; }
+    const ultimo = ultimoMeseMisurato();
+    if (!ultimo) {
+        alert("Nessuna misurazione salvata: inserisci prima una misurazione ETF nella pagina 5.");
+        renderizzaRebalancingTab();
+        return;
+    }
+    if (!ultimo.etfValori) ultimo.etfValori = {};
+    ultimo.etfValori[id] = val;
+    salvaNelLocalStorage();
+    renderizzaRebalancingTab();
+    if (typeof renderizzaVisualizzazioni === 'function') renderizzaVisualizzazioni();
+}
+
+// ---------- Performance ETF: rendimento al netto del PAC ----------
+
+// Serie mensile cumulativa di un ETF: { data, valore (null se non misurato), versato (cumulato) }
+function versamentiCumulatiETF(etfId) {
+    const mesi = [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data));
+    const serie = [];
+    let cumulato = 0;
+    mesi.forEach(m => {
+        cumulato += (m.etfVersamenti && m.etfVersamenti[etfId]) ? m.etfVersamenti[etfId] : 0;
+        serie.push({
+            data: m.data,
+            valore: (m.etfValori && m.etfValori[etfId] !== undefined) ? m.etfValori[etfId] : null,
+            versato: cumulato
+        });
+    });
+    return serie;
+}
+
+function datiPerformancePerETF() {
+    const dati = {};
+    (dbRadice.configurazioneTarget.etfs || []).forEach(etf => {
+        const serie = versamentiCumulatiETF(etf.id);
+        const ultimoPunto = serie.length > 0 ? serie[serie.length - 1] : null;
+        const valoreAttuale = (ultimoPunto && ultimoPunto.valore !== null) ? ultimoPunto.valore : 0;
+        const versatoTot = ultimoPunto ? ultimoPunto.versato : 0;
+        const rendimento = versatoTot > 0 ? (valoreAttuale - versatoTot) : null;
+        const rendimentoPct = rendimento !== null && versatoTot > 0 ? (rendimento / versatoTot) * 100 : null;
+        dati[etf.id] = { serie, valoreAttuale, versatoTot, rendimento, rendimentoPct };
+    });
+    return dati;
+}
+
+function renderizzaPerformanceETF() {
+    const tbody = document.getElementById('table-performance-etf-body');
+    if (!tbody) return;
+
+    const etfs = dbRadice.configurazioneTarget.etfs || [];
+    const dati = datiPerformancePerETF();
+    tbody.innerHTML = '';
+
+    etfs.forEach(etf => {
+        const d = dati[etf.id];
+        const tr = document.createElement('tr');
+        tr.className = etf.attivo ? '' : 'etf-row-inactive';
+        tr.innerHTML = `
+            <td><strong>${escapeHtml(etf.nome)}</strong> ${etf.attivo ? '' : '<small class="text-muted">(inattivo)</small>'}</td>
+            <td>${d.versatoTot.toLocaleString()} €</td>
+            <td>${d.valoreAttuale.toLocaleString()} €</td>
+            <td style="font-weight:bold; color: ${d.rendimento !== null ? (d.rendimento >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)') : 'var(--text-muted)'};">${d.rendimento !== null ? (d.rendimento >= 0 ? '+' : '') + d.rendimento.toLocaleString() + ' €' : '—'}</td>
+            <td style="color: ${d.rendimentoPct !== null ? (d.rendimentoPct >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)') : 'var(--text-muted)'};">${d.rendimentoPct !== null ? (d.rendimentoPct >= 0 ? '+' : '') + d.rendimentoPct.toFixed(2) + ' %' : '—'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const select = document.getElementById('select-etf-performance');
+    if (select) {
+        const precedente = select.value;
+        select.innerHTML = '';
+        etfs.forEach(etf => {
+            const opt = document.createElement('option');
+            opt.value = etf.id;
+            opt.innerText = etf.nome;
+            select.appendChild(opt);
+        });
+        if (precedente && dati[precedente]) select.value = precedente;
+    }
+    renderizzaGraficoPerformanceETF(select ? select.value : null, dati);
+}
+
+function selezionaEtfPerformance() {
+    const select = document.getElementById('select-etf-performance');
+    if (!select) return;
+    renderizzaGraficoPerformanceETF(select.value, datiPerformancePerETF());
+}
+
+function renderizzaGraficoPerformanceETF(etfId, dati) {
+    const canvas = document.getElementById('chartPerformanceEtf');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (chartPerformanceEtfInstance) chartPerformanceEtfInstance.destroy();
+    chartPerformanceEtfInstance = null;
+
+    const d = (etfId && dati[etfId]) ? dati[etfId] : null;
+    if (!d || d.serie.length === 0) {
+        chartPerformanceEtfInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: ['Inserisci almeno una misurazione nella pagina 5 (ETF - Inserimenti)'], datasets: [{ label: 'Dati insufficienti', data: [0] }] },
+            options: { responsive: true, maintainAspectRatio: false, ...ZOOM_PAN_OPTIONS }
+        });
+        return;
+    }
+
+    const labels = d.serie.map(p => p.data);
+    const valori = d.serie.map(p => p.valore);
+    const versati = d.serie.map(p => p.versato);
+    const rendimenti = d.serie.map(p => p.valore !== null ? p.valore - p.versato : null);
+
+    chartPerformanceEtfInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Valore di mercato (€)', data: valori, borderColor: '#3b82f6', tension: 0.2, fill: false },
+                { label: 'Capitale versato cumulato (€)', data: versati, borderColor: '#f59e0b', tension: 0.2, fill: false },
+                { label: 'Rendimento (€)', data: rendimenti, borderColor: '#10b981', tension: 0.2, fill: false }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, ...ZOOM_PAN_OPTIONS }
+    });
+}
+
+function renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget) {
     const ctx = document.getElementById('chartPerformanceAssets').getContext('2d');
     if (chartPerformanceAssetsInstance) chartPerformanceAssetsInstance.destroy();
 
-    const labels = etfs.map(e => e.nome);
-    const quoteAllocazione = etfs.map(e => e.quotaPct || 0);
+    const labels = attivi.map(e => e.nome);
+    const pesoTargetData = attivi.map(e => pesiTarget[e.id] || 0);
+    const pesoAttualeData = attivi.map(e => totaleInvestito > 0 ? ((valori[e.id] || 0) / totaleInvestito) * 100 : 0);
 
     chartPerformanceAssetsInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
-            datasets: [{ label: 'Quota di Allocazione (%)', data: quoteAllocazione, backgroundColor: '#3b82f6' }]
+            datasets: [
+                { label: 'Peso Target (%)', data: pesoTargetData, backgroundColor: '#3b82f6' },
+                { label: 'Peso Attuale (%)', data: pesoAttualeData, backgroundColor: '#10b981' }
+            ]
         },
         options: {
             responsive: true,
@@ -169,16 +423,17 @@ function renderizzaGraficoQuotaPac(etfs) {
     });
 }
 
-// Esposizione geografica TOTALE ponderata sulle quote di allocazione.
+// Esposizione geografica TOTALE ponderata sui pesi target (da quote mensili).
 // Se nessun ETF è sincronizzato il grafico resta vuoto (nessun dato fittizio).
-function renderizzaGraficoGeografico(etfs) {
+function renderizzaGraficoGeografico(attivi) {
     const ctx = document.getElementById('chartGeoBreakdown').getContext('2d');
     if (chartGeoBreakdownInstance) chartGeoBreakdownInstance.destroy();
 
+    const pesiTarget = pesiTargetETF(attivi);
     const aggregato = {};
-    etfs.forEach(e => {
+    attivi.forEach(e => {
         if (!e.geo || Object.keys(e.geo).length === 0) return;
-        const quota = (e.quotaPct || 0) / 100;
+        const quota = (pesiTarget[e.id] || 0) / 100;
         Object.entries(e.geo).forEach(([paese, peso]) => {
             aggregato[paese] = (aggregato[paese] || 0) + quota * peso;
         });
