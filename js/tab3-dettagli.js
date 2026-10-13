@@ -131,7 +131,7 @@ function renderizzaGraficoRisparmioAttesoVsEffettivo(dati) {
 
 function calcolaNetto(d) {
     const b = Object.values(d.bancaDettaglio || {}).reduce((a,x)=>a+x, 0);
-    const i = Object.values(d.investimentiDettaglio || {}).reduce((a,x)=>a+x, 0);
+    const i = investimentiTotali(d);
     const deb = Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0);
     return b + i - deb;
 }

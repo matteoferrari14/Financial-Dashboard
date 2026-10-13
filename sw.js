@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.3.4';
+const CACHE_NAME = 'pfd-cache-v1.4.0';
 
 // 2. Risorse statiche + librerie CDN per il supporto offline completo
 const urlsToCache = [

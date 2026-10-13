@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.3.4';
+const VERSIONE_APP = '1.4.0';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -9,6 +9,8 @@ let dbRadice = {
         bancaNomi: [],
         investimentiNomi: [],
         debitiNomi: [],
+        etfs: [],
+        fmpApiKey: '',
         mesiEmergenza: 6,
         sogliaExtraLiquidita: 5000
     },
@@ -51,8 +53,44 @@ function normalizzaConfigurazione() {
             dbRadice.configurazioneTarget[k] = [];
         }
     });
-    if (!dbRadice.dettaglioAssets) dbRadice.dettaglioAssets = [];
     if (!dbRadice.configurazioneTarget.mesiEmergenza) dbRadice.configurazioneTarget.mesiEmergenza = 6;
+
+    // Chiave API FMP per l'allocazione geografica (opzionale, salvata solo in locale)
+    if (typeof dbRadice.configurazioneTarget.fmpApiKey !== 'string') dbRadice.configurazioneTarget.fmpApiKey = '';
+
+    // Migrazione (v1.4.0): dettaglioAssets → configurazioneTarget.etfs (ISIN + quota di allocazione %).
+    // I valori correnti ora appartengono alle misurazioni mensili (storicoMesi.etfValori).
+    if (!Array.isArray(dbRadice.configurazioneTarget.etfs)) {
+        const vecchiAsset = Array.isArray(dbRadice.dettaglioAssets) ? dbRadice.dettaglioAssets : [];
+        dbRadice.configurazioneTarget.etfs = vecchiAsset.map(a => ({
+            id: (typeof a.id === 'number' && a.id) ? a.id : Date.now() + Math.floor(Math.random() * 1000),
+            nome: a.nome || 'ETF',
+            isin: a.isin || '',
+            quotaPct: a.quotaPct || a.targetPct || 0,
+            attivo: true,
+            geo: null,
+            ticker: a.ticker || undefined
+        }));
+        // Se esistono misurazioni, il vecchio "valore attuale" diventa il valore dell'ultimo mese
+        if (vecchiAsset.length > 0 && Array.isArray(dbRadice.storicoMesi) && dbRadice.storicoMesi.length > 0) {
+            const ultimo = [...dbRadice.storicoMesi].sort((x, y) => new Date(x.data) - new Date(y.data)).slice(-1)[0];
+            if (!ultimo.etfValori) ultimo.etfValori = {};
+            dbRadice.configurazioneTarget.etfs.forEach((etf, i) => {
+                const vecchio = vecchiAsset[i];
+                if (vecchio && (vecchio.valorePortafoglio || 0) > 0 && ultimo.etfValori[etf.id] === undefined) {
+                    ultimo.etfValori[etf.id] = vecchio.valorePortafoglio;
+                }
+            });
+        }
+        dbRadice.dettaglioAssets = [];
+    }
+    // Normalizzazione voci ETF
+    (dbRadice.configurazioneTarget.etfs || []).forEach(e => {
+        if (e.quotaPct === undefined) e.quotaPct = 0;
+        if (e.attivo === undefined) e.attivo = true;
+        if (e.geo === undefined) e.geo = null;
+        if (e.isin === undefined) e.isin = '';
+    });
 }
 
 // Configurazione condivisa zoom/pan/tooltip/colori per i grafici Chart.js
@@ -86,6 +124,18 @@ function escapeHtml(str) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+// Valori mensili degli ETF (misurazioni) e totali investimenti comprensivi di ETF
+function totaleETF(mese) {
+    return Object.values(mese.etfValori || {}).reduce((a, v) => a + v, 0);
+}
+function investimentiTotali(mese) {
+    return Object.values(mese.investimentiDettaglio || {}).reduce((a, v) => a + v, 0) + totaleETF(mese);
+}
+function ultimoMeseMisurato() {
+    if (!Array.isArray(dbRadice.storicoMesi) || dbRadice.storicoMesi.length === 0) return null;
+    return [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-1)[0];
 }
 
 function switchTab(tabId) {

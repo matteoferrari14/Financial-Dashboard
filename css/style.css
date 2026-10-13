@@ -398,3 +398,43 @@ tr:hover {
     font-size: 0.8rem;
     padding: 20px 0 5px 0;
 }
+
+/* MODAL ETF (popup allocazione geografica del singolo ETF) */
+.etf-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+.etf-modal-content {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 20px;
+    width: 100%;
+    max-width: 760px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.etf-modal-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.etf-modal-content th,
+.etf-modal-content td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+.etf-modal-content th {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+.etf-modal-content .chart-container {
+    min-height: 220px;
+}

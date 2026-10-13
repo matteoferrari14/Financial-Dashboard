@@ -133,6 +133,22 @@ function renderizzaFormCampi() {
     generaCampi('form-fields-banche', 'bancaNomi', 'banca');
     generaCampi('form-fields-investimenti', 'investimentiNomi', 'inv');
     generaCampi('form-fields-debiti', 'debitiNomi', 'deb');
+
+    // ETF configurati una volta (ISIN + quota) → valore misurato a ogni misurazione
+    const containerEtf = document.getElementById('form-fields-etf');
+    if (containerEtf) {
+        containerEtf.innerHTML = '';
+        (dbRadice.configurazioneTarget.etfs || [])
+            .filter(e => e.attivo)
+            .forEach(etf => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label>${escapeHtml(etf.nome)} ${etf.isin ? `<small class="text-muted">(${escapeHtml(etf.isin)})</small>` : ''}</label>
+                    <input type="number" step="0.01" class="input-dynamic-etf" data-id="${etf.id}" placeholder="0.00">
+                `;
+                containerEtf.appendChild(div);
+            });
+    }
 }
 
 function copiaUltimoMese() {
@@ -153,6 +169,11 @@ function copiaUltimoMese() {
     impostaValori('banca', ultimo.bancaDettaglio);
     impostaValori('inv', ultimo.investimentiDettaglio);
     impostaValori('deb', ultimo.debiti);
+
+    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
+        const id = input.dataset.id;
+        if (ultimo.etfValori && ultimo.etfValori[id] !== undefined) input.value = ultimo.etfValori[id];
+    });
 }
 
 function salvaMese() {
@@ -168,11 +189,17 @@ function salvaMese() {
         return obj;
     };
 
+    const etfValori = {};
+    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
+        etfValori[input.dataset.id] = parseFloat(input.value) || 0;
+    });
+
     const nuovoMese = {
         data: dataVal,
         bancaDettaglio: raccogliValori('banca'),
         investimentiDettaglio: raccogliValori('inv'),
-        debiti: raccogliValori('deb')
+        debiti: raccogliValori('deb'),
+        etfValori: etfValori
     };
 
     const editIdx = parseInt(document.getElementById('edit-index').value);
@@ -208,6 +235,11 @@ function modificaMese(index) {
     impostaValori('banca', m.bancaDettaglio);
     impostaValori('inv', m.investimentiDettaglio);
     impostaValori('deb', m.debiti);
+
+    document.querySelectorAll('.input-dynamic-etf').forEach(input => {
+        const id = input.dataset.id;
+        input.value = (m.etfValori && m.etfValori[id] !== undefined) ? m.etfValori[id] : '';
+    });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -253,7 +285,7 @@ function renderizzaStoricoTabella() {
         const idxCrescente = ordinatiCrescenti.indexOf(m);
 
         const totBanche = Object.values(m.bancaDettaglio || {}).reduce((a,b) => a+b, 0);
-        const totInv = Object.values(m.investimentiDettaglio || {}).reduce((a,b) => a+b, 0);
+        const totInv = investimentiTotali(m);
         const totDeb = Object.values(m.debiti || {}).reduce((a,b) => a+b, 0);
         const netto = totBanche + totInv - totDeb;
 

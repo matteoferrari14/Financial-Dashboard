@@ -112,7 +112,7 @@ function renderizzaVisualizzazioni() {
     if (dati.length > 0) {
         const ultimo = dati[dati.length - 1];
         const totB = Object.values(ultimo.bancaDettaglio || {}).reduce((a,b)=>a+b, 0);
-        const totI = Object.values(ultimo.investimentiDettaglio || {}).reduce((a,b)=>a+b, 0);
+        const totI = investimentiTotali(ultimo);
         const totD = Object.values(ultimo.debiti || {}).reduce((a,b)=>a+b, 0);
 
         const elNetto = document.getElementById('kpi-netto');
@@ -210,7 +210,7 @@ function renderizzaGraficoPatrimonio(dati) {
                     : 'Patrimonio Netto (€)';
 
     const labels = dati.map(d => d.data);
-    const netti = dati.map(d => totaleBranca(d, 'bancaDettaglio') + totaleBranca(d, 'investimentiDettaglio') - totaleBranca(d, 'debiti'));
+    const netti = dati.map(d => totaleBranca(d, 'bancaDettaglio') + investimentiTotali(d) - totaleBranca(d, 'debiti'));
 
     chartPatrimonioInstance = new Chart(ctx, {
         type: 'line',
@@ -262,7 +262,7 @@ function renderizzaGraficoInvestimentiDebitiStorico(dati) {
                        : 'Debiti Totali (€)';
 
     const labels = dati.map(d => d.data);
-    const totInv = dati.map(d => totaleBranca(d, 'investimentiDettaglio'));
+    const totInv = dati.map(d => investimentiTotali(d));
     const totDeb = dati.map(d => totaleBranca(d, 'debiti'));
 
     if (ctxInv) {
@@ -296,7 +296,7 @@ function renderizzaGraficoSovrapposto(dati) {
 
     const labels = dati.map(d => d.data);
     const liquidita = dati.map(d => totaleBranca(d, 'bancaDettaglio'));
-    const investimenti = dati.map(d => totaleBranca(d, 'investimentiDettaglio'));
+    const investimenti = dati.map(d => investimentiTotali(d));
     const debiti = dati.map(d => totaleBranca(d, 'debiti'));
     const netto = dati.map((d, idx) => liquidita[idx] + investimenti[idx] - debiti[idx]);
 

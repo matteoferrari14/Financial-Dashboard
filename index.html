@@ -139,6 +139,8 @@
                     <div id="form-fields-banche"></div>
                     <h3>Saldi Investimenti</h3>
                     <div id="form-fields-investimenti"></div>
+                    <h3>ETF / Strumenti in Portafoglio</h3>
+                    <div id="form-fields-etf"></div>
                 </div>
                 <div>
                     <h3>Saldi Debiti / Passività</h3>
@@ -284,50 +286,53 @@
     <!-- TAB 4: ASSET & REBALANCING -->
     <div id="tab-rebalancing" class="tab-content">
         <div class="card">
-            <h2>Aggiungi / Modifica Singolo ETF / Titolo (Monitoraggio PAC)</h2>
+            <div class="flex-between">
+                <h2>Configurazione ETF in Portafoglio</h2>
+                <button class="btn-secondary w-auto" onclick="sincronizzaTuttiETF()">🔄 Sincronizza tutti (online)</button>
+            </div>
+            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (ISIN + quota di allocazione %). La somma delle quote deve dare 100%. Il valore corrente di ogni ETF si inserisce a ogni misurazione nel Tab 1; qui si monitora lo scostamento dall'atteso.</p>
+
             <div class="grid-2">
                 <div>
                     <label>Nome Strumento / ETF</label>
                     <input type="text" id="asset-nome" placeholder="es. VWCE - Vanguard All-World">
-                    
-                    <label>ISIN / Ticker (Opzionale)</label>
+
+                    <label>ISIN</label>
                     <input type="text" id="asset-isin" placeholder="es. IE00BK5BQT33">
-                    
-                    <label>Target Portafoglio (%)</label>
-                    <input type="number" id="asset-target-pct" placeholder="es. 60">
+
+                    <label>Ticker (per API, se noto)</label>
+                    <input type="text" id="asset-ticker" placeholder="es. VWCE">
+
+                    <label>Quota di Allocazione (%)</label>
+                    <input type="number" id="asset-quota-pct" placeholder="es. 40" step="0.1">
+
+                    <input type="hidden" id="asset-edit-index" value="-1">
+                    <div class="flex-gap mt-15">
+                        <button class="btn-success" id="btn-save-etf" onclick="salvaETF()">Salva ETF</button>
+                        <button class="btn-secondary" id="btn-cancel-etf-edit" style="display:none;" onclick="annullaModificaETF()">Annulla Modifica</button>
+                    </div>
                 </div>
                 <div>
-                    <label>Benchmark / Macro-Area Geografica</label>
-                    <select id="asset-benchmark">
-                        <option value="WORLD">MSCI World / All-World (60% USA, 15% EUR, 15% Asia, 10% EM)</option>
-                        <option value="USA">S&P 500 / USA (100% USA)</option>
-                        <option value="EUROPE">STOXX Europe 600 (100% Europa)</option>
-                        <option value="EM">MSCI Emerging Markets (100% Emergenti)</option>
-                        <option value="ITALY">BTP / Italia (100% Italia)</option>
-                    </select>
-
-                    <label>Quota nel PAC Mensile (€/mese)</label>
-                    <input type="number" id="asset-quota-pac" placeholder="es. 250">
-
-                    <label>Valore Attuale nel Portafoglio (€)</label>
-                    <input type="number" id="asset-valore-portafoglio" placeholder="es. 5400">
+                    <label>Chiave API FMP (gratuita — per allocazione geografica)</label>
+                    <input type="text" id="fmp-api-key" placeholder="es. xxxxxxxxxx" autocomplete="off">
+                    <button class="btn-secondary w-auto" onclick="salvaApiKeyFmp()">Salva chiave API</button>
+                    <p class="text-muted" style="font-size:0.75rem;">Serve solo per sincronizzare i pesi per paese (etf-country-distribution). Crea una chiave gratuita su financialmodelingprep.com e salvala qui: resta solo sul tuo dispositivo. Senza sincronizzazione i dati geografici restano vuoti.</p>
                 </div>
             </div>
-            <button class="btn-success mt-15" onclick="salvaAssetSingolo()">Salva Asset in Portafoglio</button>
         </div>
 
         <div class="card">
             <h2>Monitoraggio Rebalancing & Performance Asset</h2>
+            <p class="text-muted" style="font-size:0.8rem;">Valori attuali = ultima misurazione salvata (Tab 1). Riallocazione = € necessari a portare il peso attuale alla quota di allocazione.</p>
             <div id="rebalancing-warning" class="banner-alert banner-warning" style="display:none;"></div>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
                         <tr>
                             <th>Asset</th>
-                            <th>Quota PAC</th>
+                            <th>Allocazione Attesa %</th>
                             <th>Valore Attuale</th>
-                            <th>Peso Attuale %</th>
-                            <th>Target %</th>
+                            <th>Allocazione Attuale %</th>
                             <th>Riallocazione (€)</th>
                             <th>Azioni</th>
                         </tr>
@@ -339,12 +344,37 @@
 
         <div class="grid-2">
             <div class="card">
-                <h2>Esposizione Geografica Stimata</h2>
+                <h2>Esposizione Geografica Totale Ponderata</h2>
                 <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
+                <p class="text-muted" style="font-size:0.8rem;">Ponderata sulle quote di allocazione. Se gli ETF non sono sincronizzati, il grafico resta vuoto (nessun dato fittizio).</p>
             </div>
             <div class="card">
-                <h2>Quota PAC Mensile per Asset</h2>
+                <h2>Quota di Allocazione per Asset (%)</h2>
                 <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
+            </div>
+        </div>
+        <!-- MODAL: allocazione geografica del singolo ETF -->
+        <div id="etf-modal" class="etf-modal" style="display:none;">
+            <div class="etf-modal-content">
+                <div class="flex-between">
+                    <h3 id="etf-modal-title">ETF — Allocazione Geografica</h3>
+                    <button class="btn-secondary w-auto" onclick="chiudiPopupETF()">✕ Chiudi</button>
+                </div>
+                <p class="text-muted" id="etf-modal-status" style="font-size:0.85rem;"></p>
+                <div class="grid-2">
+                    <div>
+                        <table id="etf-modal-table">
+                            <thead>
+                                <tr><th>Paese / Area</th><th>Peso</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="chart-container"><canvas id="etf-popup-chart"></canvas></div>
+                </div>
+                <div class="flex-gap mt-15">
+                    <button class="btn-primary" onclick="sincronizzaETFDaPopup()">🔄 Sincronizza ora (online)</button>
+                </div>
             </div>
         </div>
     </div>
