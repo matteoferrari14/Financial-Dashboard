@@ -1,0 +1,602 @@
+{
+    "configurazioneTarget": {
+        "redditi": [
+            {
+                "nome": "Stipendio netto",
+                "importo": 2200,
+                "attivo": true
+            },
+            {
+                "nome": "Rendita affitto",
+                "importo": 400,
+                "attivo": true
+            }
+        ],
+        "spese": [
+            {
+                "nome": "Rata mutuo",
+                "importo": 700,
+                "attivo": true
+            },
+            {
+                "nome": "Spesa alimentari",
+                "importo": 400,
+                "attivo": true
+            },
+            {
+                "nome": "Bollette e utenze",
+                "importo": 180,
+                "attivo": true
+            },
+            {
+                "nome": "Trasporti e carburante",
+                "importo": 150,
+                "attivo": true
+            },
+            {
+                "nome": "Assicurazioni",
+                "importo": 80,
+                "attivo": true
+            },
+            {
+                "nome": "Telefono e internet",
+                "importo": 50,
+                "attivo": true
+            },
+            {
+                "nome": "Tempo libero",
+                "importo": 250,
+                "attivo": true
+            }
+        ],
+        "investimenti": [],
+        "bancaNomi": [
+            {
+                "nome": "Conto Corrente",
+                "importo": 0,
+                "attivo": true
+            },
+            {
+                "nome": "Conto Deposito",
+                "importo": 0,
+                "attivo": true
+            },
+            {
+                "nome": "Carta e Contanti",
+                "importo": 0,
+                "attivo": true
+            }
+        ],
+        "investimentiNomi": [
+            {
+                "nome": "Fondo Pensione",
+                "importo": 150,
+                "attivo": true
+            },
+            {
+                "nome": "Titoli di Stato",
+                "importo": 100,
+                "attivo": true
+            }
+        ],
+        "debitiNomi": [
+            {
+                "nome": "Mutuo Residuo",
+                "importo": 0,
+                "attivo": true
+            },
+            {
+                "nome": "Carta di Credito",
+                "importo": 0,
+                "attivo": true
+            }
+        ],
+        "etfs": [
+            {
+                "id": 1710000000001,
+                "nome": "VWCE - Azionario Globale",
+                "isin": "IE00BK5BQT80",
+                "ticker": "VWCE.DE",
+                "quotaPct": 0,
+                "quotaMensile": 200,
+                "attivo": true,
+                "geo": null
+            },
+            {
+                "id": 1710000000002,
+                "nome": "EIMI - Mercati Emergenti",
+                "isin": "IE00BKM4GZ66",
+                "ticker": "EIMI.DE",
+                "quotaPct": 0,
+                "quotaMensile": 50,
+                "attivo": true,
+                "geo": null
+            },
+            {
+                "id": 1710000000003,
+                "nome": "AGGH - Obbligazioni Globali",
+                "isin": "IE00BDBRDM35",
+                "ticker": "AGGH.DE",
+                "quotaPct": 0,
+                "quotaMensile": 100,
+                "attivo": true,
+                "geo": null
+            }
+        ],
+        "fmpApiKey": "",
+        "mesiEmergenza": 6,
+        "sogliaExtraLiquidita": 5000,
+        "sogliaScostamentoEtf": 10
+    },
+    "storicoMesi": [
+        {
+            "data": "2025-04-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 8390,
+                "Conto Deposito": 15040,
+                "Carta e Contanti": 600
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 14694,
+                "Titoli di Stato": 5310
+            },
+            "debiti": {
+                "Mutuo Residuo": 88100,
+                "Carta di Credito": 350
+            },
+            "etfValori": {
+                "1710000000001": 9073,
+                "1710000000002": 2465,
+                "1710000000003": 5417
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-05-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 8580,
+                "Conto Deposito": 15080,
+                "Carta e Contanti": 600
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 14888,
+                "Titoli di Stato": 5421
+            },
+            "debiti": {
+                "Mutuo Residuo": 87750,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 9344,
+                "1710000000002": 2529,
+                "1710000000003": 5533
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-06-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 8770,
+                "Conto Deposito": 15120,
+                "Carta e Contanti": 600
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 15083,
+                "Titoli di Stato": 5532
+            },
+            "debiti": {
+                "Mutuo Residuo": 87400,
+                "Carta di Credito": 420
+            },
+            "etfValori": {
+                "1710000000001": 9620,
+                "1710000000002": 2595,
+                "1710000000003": 5651
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-07-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 8960,
+                "Conto Deposito": 15160,
+                "Carta e Contanti": 600
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 15278,
+                "Titoli di Stato": 5643
+            },
+            "debiti": {
+                "Mutuo Residuo": 87050,
+                "Carta di Credito": 150
+            },
+            "etfValori": {
+                "1710000000001": 9898,
+                "1710000000002": 2661,
+                "1710000000003": 5768
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-08-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 8700,
+                "Conto Deposito": 15200,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 15474,
+                "Titoli di Stato": 5754
+            },
+            "debiti": {
+                "Mutuo Residuo": 86700,
+                "Carta di Credito": 580
+            },
+            "etfValori": {
+                "1710000000001": 10175,
+                "1710000000002": 2726,
+                "1710000000003": 5884
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-09-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 8890,
+                "Conto Deposito": 15240,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 15670,
+                "Titoli di Stato": 5866
+            },
+            "debiti": {
+                "Mutuo Residuo": 86350,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 10458,
+                "1710000000002": 2793,
+                "1710000000003": 6002
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-10-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 9080,
+                "Conto Deposito": 15280,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 15867,
+                "Titoli di Stato": 5978
+            },
+            "debiti": {
+                "Mutuo Residuo": 86000,
+                "Carta di Credito": 260
+            },
+            "etfValori": {
+                "1710000000001": 10745,
+                "1710000000002": 2861,
+                "1710000000003": 6122
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-11-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 9270,
+                "Conto Deposito": 15320,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 16065,
+                "Titoli di Stato": 6090
+            },
+            "debiti": {
+                "Mutuo Residuo": 85650,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 11030,
+                "1710000000002": 2928,
+                "1710000000003": 6240
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2025-12-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 11760,
+                "Conto Deposito": 15360,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 16263,
+                "Titoli di Stato": 6202
+            },
+            "debiti": {
+                "Mutuo Residuo": 85300,
+                "Carta di Credito": 720
+            },
+            "etfValori": {
+                "1710000000001": 11322,
+                "1710000000002": 2997,
+                "1710000000003": 6361
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-01-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 11950,
+                "Conto Deposito": 15400,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 16462,
+                "Titoli di Stato": 6314
+            },
+            "debiti": {
+                "Mutuo Residuo": 84950,
+                "Carta di Credito": 380
+            },
+            "etfValori": {
+                "1710000000001": 11611,
+                "1710000000002": 3065,
+                "1710000000003": 6479
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-02-28",
+            "bancaDettaglio": {
+                "Conto Corrente": 12140,
+                "Conto Deposito": 15440,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 16661,
+                "Titoli di Stato": 6427
+            },
+            "debiti": {
+                "Mutuo Residuo": 84600,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 11905,
+                "1710000000002": 3134,
+                "1710000000003": 6599
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-03-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 12330,
+                "Conto Deposito": 15480,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 16861,
+                "Titoli di Stato": 6540
+            },
+            "debiti": {
+                "Mutuo Residuo": 84250,
+                "Carta di Credito": 490
+            },
+            "etfValori": {
+                "1710000000001": 12203,
+                "1710000000002": 3204,
+                "1710000000003": 6720
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-04-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 11520,
+                "Conto Deposito": 16520,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 17062,
+                "Titoli di Stato": 6653
+            },
+            "debiti": {
+                "Mutuo Residuo": 83900,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 12501,
+                "1710000000002": 3273,
+                "1710000000003": 6841
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-05-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 11710,
+                "Conto Deposito": 16560,
+                "Carta e Contanti": 550
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 17263,
+                "Titoli di Stato": 6766
+            },
+            "debiti": {
+                "Mutuo Residuo": 83550,
+                "Carta di Credito": 310
+            },
+            "etfValori": {
+                "1710000000001": 12799,
+                "1710000000002": 3342,
+                "1710000000003": 6960
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-06-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 11550,
+                "Conto Deposito": 16600,
+                "Carta e Contanti": 650
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 17465,
+                "Titoli di Stato": 6880
+            },
+            "debiti": {
+                "Mutuo Residuo": 83200,
+                "Carta di Credito": 420
+            },
+            "etfValori": {
+                "1710000000001": 13104,
+                "1710000000002": 3413,
+                "1710000000003": 7082
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-07-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 11740,
+                "Conto Deposito": 16640,
+                "Carta e Contanti": 650
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 17667,
+                "Titoli di Stato": 6994
+            },
+            "debiti": {
+                "Mutuo Residuo": 82850,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 13414,
+                "1710000000002": 3485,
+                "1710000000003": 7206
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-08-31",
+            "bancaDettaglio": {
+                "Conto Corrente": 11530,
+                "Conto Deposito": 16680,
+                "Carta e Contanti": 600
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 17870,
+                "Titoli di Stato": 7108
+            },
+            "debiti": {
+                "Mutuo Residuo": 82500,
+                "Carta di Credito": 540
+            },
+            "etfValori": {
+                "1710000000001": 13719,
+                "1710000000002": 3555,
+                "1710000000003": 7326
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        },
+        {
+            "data": "2026-09-30",
+            "bancaDettaglio": {
+                "Conto Corrente": 11870,
+                "Conto Deposito": 16720,
+                "Carta e Contanti": 450
+            },
+            "investimentiDettaglio": {
+                "Fondo Pensione": 18074,
+                "Titoli di Stato": 7222
+            },
+            "debiti": {
+                "Mutuo Residuo": 82150,
+                "Carta di Credito": 0
+            },
+            "etfValori": {
+                "1710000000001": 14032,
+                "1710000000002": 3627,
+                "1710000000003": 7450
+            },
+            "etfVersamenti": {
+                "1710000000001": 200,
+                "1710000000002": 50,
+                "1710000000003": 100
+            }
+        }
+    ],
+    "dettaglioAssets": []
+}
