@@ -298,6 +298,49 @@ tr:hover {
     height: 320px;
     margin-top: 10px;
 }
+/* Riga riepilogo "media mese su mese" sotto i grafici del Tab 3 (volutamente poco appariscente) */
+.media-mom-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(51, 65, 85, 0.35);
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* Piccolo titolo della riga riepilogo (es. "Media mese su mese") */
+.media-row-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    align-self: center;
+    white-space: nowrap;
+}
+
+.media-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.media-chip-nome {
+    color: var(--text-muted);
+}
+
+.media-chip-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.media-pos { color: var(--accent-success); }
+.media-neg { color: var(--accent-danger); }
 
 /* CONFIG ITEM & TOGGLE */
 .config-item {
@@ -364,6 +407,17 @@ tr:hover {
     text-decoration: line-through;
 }
 
+/* Riga riepilogo totale (Tab 4) in coda all'elenco asset */
+.tr-totale td {
+    border-top: 2px solid var(--accent-primary);
+    background: rgba(59, 130, 246, 0.06);
+    font-weight: 600;
+}
+
+.tr-totale small {
+    font-weight: 400;
+}
+
 /* Riga doppio input ETF (Valore + Versato) nel form mensile del Tab 1 */
 .etf-form-row {
     display: flex;
@@ -372,15 +426,6 @@ tr:hover {
 .etf-form-row input {
     flex: 1;
     min-width: 0;
-}
-
-/* Input "Valore Attuale" modificabile inline nella tabella del Tab 4 */
-.input-valore-etf {
-    width: 110px !important;
-    display: inline-block !important;
-    margin-bottom: 0 !important;
-    padding: 4px 8px !important;
-    font-size: 0.85rem !important;
 }
 
 /* BANNER LIQUIDITÀ (Tab 2) */

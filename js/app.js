@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.5';
+const VERSIONE_APP = '1.6.8';
 
 let dbRadice = {
     configurazioneTarget: {

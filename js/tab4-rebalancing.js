@@ -148,10 +148,14 @@ function renderizzaRebalancingTab() {
         const valoreAttuale = valori[etf.id] || 0;
         const pesoAttualePct = (attivo && totaleInvestito > 0) ? (valoreAttuale / totaleInvestito) * 100 : 0;
         const diffPp = pesoAttualePct - pesoTarget;
-        // Banda = soglia % del target (relativa al singolo ETF, NON al portafoglio)
-        const banda = (soglia / 100) * pesoTarget;
-        const inSoglia = Math.abs(diffPp) <= banda;
-        if (attivo && !inSoglia) fuoriSoglia.push({ etf, pesoTarget, pesoAttualePct, diffPp });
+        // Soglia RELATIVA al singolo ETF (NON al portafoglio): la banda è la soglia %
+        // applicata al TARGET dell'ETF. Es. target 10%, soglia 20% → banda ±2 p.p. →
+        // su un portafoglio di 10000€ l'ETF (target 1000€) deve restare tra 800€ e 1200€.
+        const bandaPp = (soglia / 100) * pesoTarget;
+        const inSoglia = Math.abs(diffPp) <= bandaPp;
+        // Se non c'è ancora nessuna misurazione (totale 0) nessun ETF è realmente fuori
+        // banda: si evita un warning ingannevole "sotto target" a dati non ancora inseriti.
+        if (attivo && totaleInvestito > 0 && !inSoglia) fuoriSoglia.push({ etf, pesoTarget, pesoAttualePct, diffPp, valoreAttuale, bandaPp });
 
         // Freccia di stato accanto al peso attuale (▲ sopra, ▼ sotto, = in target entro ±2 p.p.)
         let freccia = '=';
@@ -159,10 +163,32 @@ function renderizzaRebalancingTab() {
         if (diffPp > 2) { freccia = '▲'; colFreccia = 'var(--accent-success)'; }
         else if (diffPp < -2) { freccia = '▼'; colFreccia = 'var(--accent-danger)'; }
 
-        let tdValore = `${valoreAttuale.toLocaleString()} €`;
-        if (attivo) {
-            tdValore = `<input type="number" step="0.01" min="0" class="input-valore-etf" data-id="${etf.id}" value="${valoreAttuale || ''}" title="Modifica il valore corrente (salva sull'ultima misurazione della pagina 5)" onchange="aggiornaValoreEtf(this)"> €`;
+        // Scostamento in colonna: deviazione in € dal target + % RELATIVA al target del
+        // singolo ETF (coerente con la soglia relativa di warning), non p.p. assoluti.
+        let testoScostamento = '—';
+        if (totaleInvestito === 0) {
+            testoScostamento = '<span class="text-muted" title="Nessuna misurazione: inserisci i valori nella pagina 5">—</span>';
+        } else {
+            const colScostamento = inSoglia ? 'var(--accent-success)' : 'var(--accent-warning)';
+            const targetEuro = (pesoTarget / 100) * totaleInvestito;
+            const diffEuro = valoreAttuale - targetEuro;
+            if (targetEuro > 0) {
+                const relPct = (diffEuro / targetEuro) * 100;
+                testoScostamento =
+                    `<span style="color:${colScostamento};font-weight:600;">${diffEuro >= 0 ? '+' : ''}${diffEuro.toLocaleString()} €</span>` +
+                    `<span style="color:${colScostamento};">&nbsp;(${relPct >= 0 ? '+' : ''}${relPct.toFixed(1)}% vs target)</span>` +
+                    (inSoglia ? '' : ' ⚠️');
+            } else if (valoreAttuale > 0) {
+                // Target 0% ma posizione aperta: la % relativa non è definita, resta la deviazione in p.p.
+                testoScostamento = `<span style="color:${colScostamento};">${diffPp >= 0 ? '+' : ''}${diffPp.toFixed(1)} p.p.</span> ⚠️`;
+            }
+            // Caso target 0% e nessuna posizione: resta "—"
         }
+
+        // Valore in SOLA LETTURA: arriva dall'ultima misurazione della pagina 5
+        // (storicoMesi.etfValori). Per modificarlo bisogna salvare una nuova
+        // misurazione in "ETF - Inserimenti" (pagina 5), mai direttamente qui.
+        const tdValore = `${valoreAttuale.toLocaleString()} €`;
 
         const tr = document.createElement('tr');
         tr.className = attivo ? '' : 'etf-row-inactive';
@@ -176,7 +202,7 @@ function renderizzaRebalancingTab() {
             <td>${attivo ? pesoTarget.toFixed(1) + ' %' : '—'}</td>
             <td>${tdValore}</td>
             <td>${attivo ? `<span style="font-weight:bold; color: ${colFreccia};">${freccia}</span> ${pesoAttualePct.toFixed(1)} %` : '—'}</td>
-            <td>${attivo ? `<span style="color: ${inSoglia ? 'var(--accent-success)' : 'var(--accent-warning)'};">${diffPp >= 0 ? '+' : ''}${diffPp.toFixed(1)} p.p.</span> ${inSoglia ? '' : '⚠️'}` : '—'}</td>
+            <td>${attivo ? testoScostamento : '—'}</td>
             <td>
                 <span class="toggle-switch ${attivo ? 'toggle-active' : 'toggle-inactive'}" onclick="toggleETF(${etfs.indexOf(etf)})">${attivo ? 'Attivo' : 'Inattivo'}</span>
                 <button class="btn-secondary w-auto" style="padding:4px 8px; margin:0;" title="Allocazione geografica (popup)" onclick="apriPopupETF(${etf.id})">🌐</button>
@@ -187,10 +213,42 @@ function renderizzaRebalancingTab() {
         tbody.appendChild(tr);
     });
 
+    // ---------- Riga riepilogativa in coda all'elenco asset ----------
+    // Patrimonio = somma dei valori correnti degli ETF attivi; versato = capitale
+    // complessivamente versato (cumulato dalla pagina 5); rendimento da patrimonio/versato.
+    const totaleQuotaMensile = attivi.reduce((a, e) => a + (e.quotaMensile || 0), 0);
+    let totaleVersato = 0;
+    attivi.forEach(e => {
+        const serie = versamentiCumulatiETF(e.id);
+        if (serie.length > 0) totaleVersato += serie[serie.length - 1].versato;
+    });
+    const rendimentoEuro = totaleVersato > 0 ? totaleInvestito - totaleVersato : null;
+    const rendimentoPct = (rendimentoEuro !== null && totaleVersato > 0) ? ((totaleInvestito / totaleVersato) - 1) * 100 : null;
+
+    const trTot = document.createElement('tr');
+    trTot.className = 'tr-totale';
+    trTot.innerHTML = `
+        <td><strong>TOTALE ETF ATTIVI</strong><br><small class="text-muted">patrimonio e versato cumulati dagli ETF attivi</small></td>
+        <td><strong>${totaleQuotaMensile.toLocaleString()} €</strong><br><small class="text-muted">al mese</small></td>
+        <td>100 %</td>
+        <td><strong>${totaleInvestito.toLocaleString()} €</strong></td>
+        <td>100 %</td>
+        <td>${rendimentoPct !== null
+            ? `<strong style="color:${rendimentoEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${rendimentoEuro >= 0 ? '+' : ''}${rendimentoEuro.toLocaleString()} €</strong>&nbsp;<span style="color:${rendimentoEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};font-weight:600;">(${rendimentoPct >= 0 ? '+' : ''}${rendimentoPct.toFixed(2)}%)</span><br>`
+            : '<span class="text-muted">—</span>'}</td>
+        <td></td>
+    `;
+    tbody.appendChild(trTot);
+
     if (warningEl) {
         if (fuoriSoglia.length > 0) {
             warningEl.style.display = 'block';
-            warningEl.innerHTML = `⚠️ <strong>Warning allocazione (soglia ${soglia}% del target):</strong> ${fuoriSoglia.map(f => `<strong>${escapeHtml(f.etf.nome)}</strong> al ${f.pesoAttualePct.toFixed(1)}% (target ${f.pesoTarget.toFixed(1)}%)`).join(' · ')}.`;
+            warningEl.innerHTML = `⚠️ <strong>Warning allocazione (soglia ${soglia}% relativa al target del singolo ETF):</strong> ${fuoriSoglia.map(f => {
+                const targetEuro = (f.pesoTarget / 100) * totaleInvestito;
+                const limiteBasso = targetEuro - (soglia / 100) * targetEuro;
+                const limiteAlto = targetEuro + (soglia / 100) * targetEuro;
+                return `<strong>${escapeHtml(f.etf.nome)}</strong> a ${f.valoreAttuale.toLocaleString()}€ (${f.pesoAttualePct.toFixed(1)}%, target ${f.pesoTarget.toFixed(1)}%) — fuori banda ${limiteBasso.toLocaleString()}€–${limiteAlto.toLocaleString()}€`;
+            }).join(' · ')}.`;
         } else {
             warningEl.style.display = 'none';
         }
@@ -264,24 +322,9 @@ function calcolaRibilanciamento() {
     resultEl.innerHTML = html;
 }
 
-// Aggiorna il "Valore Attuale" di un ETF direttamente dal Tab 4:
-// salva sull'ultima misurazione della pagina 5 (storicoMesi.etfValori).
-function aggiornaValoreEtf(input) {
-    const id = input.dataset.id;
-    const val = parseFloat(input.value);
-    if (isNaN(val) || val < 0) { renderizzaRebalancingTab(); return; }
-    const ultimo = ultimoMeseMisurato();
-    if (!ultimo) {
-        alert("Nessuna misurazione salvata: inserisci prima una misurazione ETF nella pagina 5.");
-        renderizzaRebalancingTab();
-        return;
-    }
-    if (!ultimo.etfValori) ultimo.etfValori = {};
-    ultimo.etfValori[id] = val;
-    salvaNelLocalStorage();
-    renderizzaRebalancingTab();
-    if (typeof renderizzaVisualizzazioni === 'function') renderizzaVisualizzazioni();
-}
+// Il "Valore Attuale" della tabella è SOLO in lettura: proviene dall'ultima
+// misurazione salvata nella pagina 5 (storicoMesi.etfValori). Le modifiche si
+// fanno esclusivamente in "ETF - Inserimenti", quindi qui non c'è più un input.
 
 // ---------- Performance ETF: rendimento al netto del PAC ----------
 

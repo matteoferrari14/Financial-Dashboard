@@ -275,18 +275,22 @@
         <div class="card">
             <h2>Dettaglio Singole Banche / Liquidità</h2>
             <div class="chart-container"><canvas id="chartDettaglioBanche"></canvas></div>
+            <div class="media-mom-row" id="mediaMomBanche"></div>
         </div>
         <div class="card">
             <h2>Dettaglio Singoli Investimenti</h2>
             <div class="chart-container"><canvas id="chartDettaglioInvestimenti"></canvas></div>
+            <div class="media-mom-row" id="mediaMomInvestimenti"></div>
         </div>
         <div class="card">
             <h2>Dettaglio Singoli Debiti</h2>
             <div class="chart-container"><canvas id="chartDettaglioDebiti"></canvas></div>
+            <div class="media-mom-row" id="mediaMomDebiti"></div>
         </div>
         <div class="card">
             <h2>Differenziale Risparmio (Effettivo vs Atteso)</h2>
             <div class="chart-container"><canvas id="chartRisparmioAttesoVsEffettivo"></canvas></div>
+            <div class="media-mom-row" id="mediaPerformanceRisparmio"></div>
         </div>
     </div>
 
@@ -331,12 +335,12 @@
 
         <div class="card">
             <h2>Monitoraggio Allocazione & Rebalancing ETF</h2>
-            <p class="text-muted" style="font-size:0.8rem;">Il peso target deriva dalla quota di versamento mensile (es. 50€ su 200€/mese → 25%). Il peso attuale si calcola sull'ultima misurazione salvata (pagina 5, ETF - Inserimenti) usando solo gli ETF attivi: questa pagina è indipendente dal resto del portafoglio.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Il peso target deriva dalla quota di versamento mensile (es. 50€ su 200€/mese → 25%). Valore e peso attuali si prendono dall'ultima misurazione salvata in "ETF - Inserimenti" (pagina 5) e qui non sono modificabili: per aggiornarli salva una nuova misurazione nella pagina 5. Il peso attuale usa solo gli ETF attivi: questa pagina è indipendente dal resto del portafoglio.</p>
             <div class="grid-2" style="align-items:end;">
                 <div>
-                    <label>Soglia di scostamento (%, unica per tutti gli ETF)</label>
+                    <label>Soglia di scostamento (%, relativa al singolo ETF)</label>
                     <input type="number" id="soglia-scostamento-etf" placeholder="es. 10" step="0.5" min="0" onchange="salvaSogliaScostamento()">
-                    <p class="text-muted" style="font-size:0.75rem;">Warning quando il peso attuale si discosta dal target di oltre questa % <em>del target stesso</em> (es. target 25%, soglia 10% → warning se peso attuale fuori da 22,5%–27,5%).</p>
+                    <p class="text-muted" style="font-size:0.75rem;">Soglia <strong>relativa al singolo ETF</strong> (non al portafoglio): warning quando il valore di un ETF esce dal proprio target di oltre questa % del target stesso. Es. portafoglio 10000€, ETF al 10% (target 1000€), soglia 20% → warning sopra 1200€ o sotto 800€.</p>
                 </div>
                 <div style="text-align:right;">
                     <button class="btn-primary" onclick="calcolaRibilanciamento()">⚖️ Calcola Ribilanciamento (solo acquisti)</button>
@@ -353,7 +357,7 @@
                             <th>Peso Target %</th>
                             <th>Valore Attuale</th>
                             <th>Peso Attuale %</th>
-                            <th>Scostamento</th>
+                            <th>Scostamento (€ / % vs target)</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>

@@ -4,7 +4,13 @@ let chartDettaglioDebitiInstance = null;
 let chartRisparmioInstance = null;
 
 function renderizzaGraficiDettaglio(dati) {
-    if (!dati || dati.length === 0) return;
+    if (!dati || dati.length === 0) {
+        ['mediaMomBanche', 'mediaMomInvestimenti', 'mediaMomDebiti', 'mediaPerformanceRisparmio'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '';
+        });
+        return;
+    }
     
     const modeSelect = document.getElementById('metric-mode-det') || document.getElementById('metric-mode');
     const mode = (modeSelect && modeSelect.value) ? modeSelect.value : 'valore';
@@ -13,7 +19,13 @@ function renderizzaGraficiDettaglio(dati) {
     renderizzaGraficoDettaglioSingolo('chartDettaglioInvestimenti', dati, 'investimentiDettaglio', mode);
     renderizzaGraficoDettaglioSingolo('chartDettaglioDebiti', dati, 'debiti', mode);
     
+    // Righe riepilogo (poco appariscenti) sotto i grafici: media mese su mese di ogni voce
+    renderizzaMediaVoci('mediaMomBanche', mediaMomVoci(dati, 'bancaDettaglio'), 'Media mese su mese');
+    renderizzaMediaVoci('mediaMomInvestimenti', mediaMomVoci(dati, 'investimentiDettaglio'), 'Media mese su mese');
+    renderizzaMediaVoci('mediaMomDebiti', mediaMomVoci(dati, 'debiti'), 'Media mese su mese');
+
     renderizzaGraficoRisparmioAttesoVsEffettivo(dati);
+    renderizzaMediaPerformanceRisparmio(dati);
 }
 
 // Configurazione zoom/pan/tooltip condivisa (definita in app.js)
@@ -99,20 +111,8 @@ function renderizzaGraficoRisparmioAttesoVsEffettivo(dati) {
         return;
     }
 
-    const totRedditiTarget = (dbRadice.configurazioneTarget.redditi || []).reduce((a,b) => a + (b.importo || 0), 0);
-    const totSpeseTarget = (dbRadice.configurazioneTarget.spese || []).filter(s => s.attivo).reduce((a,b) => a + (b.importo || 0), 0);
-    const risparmioAttesoMensile = totRedditiTarget - totSpeseTarget;
-
     const etichetteMesi = dati.map(d => d.data).slice(1);
-    const differenziali = [];
-
-    for (let i = 1; i < dati.length; i++) {
-        const netPrecedente = calcolaNetto(dati[i-1]);
-        const netAttuale = calcolaNetto(dati[i]);
-        const risparmioEffettivo = netAttuale - netPrecedente;
-        const differenziale = risparmioEffettivo - risparmioAttesoMensile;
-        differenziali.push(differenziale);
-    }
+    const differenziali = calcolaDifferenzialiRisparmio(dati);
 
     chartRisparmioInstance = new Chart(ctx, {
         type: 'bar',
@@ -134,4 +134,74 @@ function calcolaNetto(d) {
     const i = investimentiTotali(d);
     const deb = Object.values(d.debiti || {}).reduce((a,x)=>a+x, 0);
     return b + i - deb;
+}
+// ---------- Righe riepilogo "media andamento mese su mese" (Tab 3) ----------
+// Mostrano, subito sotto i grafici, la media dell'andamento mese su mese di ogni
+// voce e la media delle performance nel periodo filtrato (riga poco appariscente).
+
+// Formatta un importo con segno esplicito e due decimali (es. +1.234,56)
+function formattaImporto(v) {
+    const segno = v >= 0 ? '+' : '';
+    return segno + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Media dell'andamento mese su mese di ogni voce di un ramo nel periodo filtrato.
+// Es. per ogni banca/investimento/debito: media delle differenze fra misurazioni consecutive.
+function mediaMomVoci(dati, ramoDati) {
+    if (!dati || dati.length < 2) return [];
+    const chiavi = new Set();
+    dati.forEach(d => { if (d[ramoDati]) Object.keys(d[ramoDati]).forEach(k => chiavi.add(k)); });
+    const risultato = [];
+    chiavi.forEach(k => {
+        const serie = dati.map(d => (d[ramoDati] && d[ramoDati][k] !== undefined) ? d[ramoDati][k] : 0);
+        let somma = 0;
+        for (let i = 1; i < serie.length; i++) somma += (serie[i] - serie[i - 1]);
+        risultato.push({ nome: k, media: somma / (serie.length - 1) });
+    });
+    return risultato;
+}
+
+// Mostra una riga poco appariscente di medie mese su mese sotto il grafico corrispondente.
+function renderizzaMediaVoci(containerId, voci, titolo) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!voci || voci.length === 0) { el.innerHTML = ''; return; }
+    const etichetta = titolo ? `<span class="media-row-label">${escapeHtml(titolo)}:</span>` : '';
+    el.innerHTML = etichetta + voci.map(v => `
+        <span class="media-chip">
+            <span class="media-chip-nome">${escapeHtml(v.nome)}</span>
+            <span class="media-chip-val ${v.media >= 0 ? 'media-pos' : 'media-neg'}">${formattaImporto(v.media)} €/mese</span>
+        </span>`).join('');
+}
+
+// Differenziali mensili (Effettivo - Atteso) nel periodo filtrato, usati dal grafico
+// "Differenziale Risparmio" e dalla sua riga di riepilogo.
+function calcolaDifferenzialiRisparmio(dati) {
+    const totRedditiTarget = (dbRadice.configurazioneTarget.redditi || []).reduce((a,b) => a + (b.importo || 0), 0);
+    const totSpeseTarget = (dbRadice.configurazioneTarget.spese || []).filter(s => s.attivo).reduce((a,b) => a + (b.importo || 0), 0);
+    const risparmioAttesoMensile = totRedditiTarget - totSpeseTarget;
+
+    const differenziali = [];
+    for (let i = 1; i < dati.length; i++) {
+        const netPrecedente = calcolaNetto(dati[i-1]);
+        const netAttuale = calcolaNetto(dati[i]);
+        const risparmioEffettivo = netAttuale - netPrecedente;
+        differenziali.push(risparmioEffettivo - risparmioAttesoMensile);
+    }
+    return differenziali;
+}
+
+// Media delle performance nel periodo filtrato (media dei differenziali mensili).
+function renderizzaMediaPerformanceRisparmio(dati) {
+    const el = document.getElementById('mediaPerformanceRisparmio');
+    if (!el) return;
+    if (!dati || dati.length < 2) { el.innerHTML = ''; return; }
+    const differenziali = calcolaDifferenzialiRisparmio(dati);
+    const media = differenziali.reduce((a, b) => a + b, 0) / differenziali.length;
+    el.innerHTML = `
+        <span class="media-row-label">Media performance periodo:</span>
+        <span class="media-chip">
+            <span class="media-chip-nome">Effettivo vs Atteso</span>
+            <span class="media-chip-val ${media >= 0 ? 'media-pos' : 'media-neg'}">${formattaImporto(media)} €/mese</span>
+        </span>`;
 }
