@@ -7,9 +7,8 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Chart.js & Zoom Plugin -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 
@@ -53,19 +52,27 @@
         </div>
 
         <div class="card">
-            <h2>Riepilogo Budget & Risparmio Target</h2>
-            <div class="grid-4">
+            <h2>Riepilogo Budget Mensile</h2>
+            <div class="grid-3">
                 <div>
-                    <div class="kpi-title">Totale Redditi Target</div>
+                    <div class="kpi-title">Redditi</div>
                     <div class="kpi-value text-success" id="summary-redditi-target">0 €</div>
                 </div>
                 <div>
-                    <div class="kpi-title">Totale Spese Attive</div>
+                    <div class="kpi-title">Spese Mensili</div>
                     <div class="kpi-value text-danger" id="summary-spese-target">0 €</div>
                 </div>
                 <div>
-                    <div class="kpi-title">Risparmio Atteso Mensile</div>
+                    <div class="kpi-title">Investimenti Mensili</div>
+                    <div class="kpi-value text-primary" id="summary-investimenti-target">0 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Risparmio Mensile</div>
                     <div class="kpi-value text-primary" id="summary-risparmio-atteso">0 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Aumento Liquidità</div>
+                    <div class="kpi-value text-success" id="summary-aumento-cash">0 €</div>
                 </div>
                 <div>
                     <div class="kpi-title">Fondo d'Emergenza Target</div>
@@ -87,11 +94,12 @@
                         <button class="btn-primary w-auto" onclick="addConfigItem('bancaNomi')">+</button>
                     </div>
 
-                    <h3>Investimenti</h3>
+                    <h3>Investimenti (Quota Mensile)</h3>
                     <div id="list-investimentiNomi"></div>
                     <div class="flex-gap mt-15">
-                        <input type="text" id="new-investimentiNome" placeholder="Nuovo investimento...">
-                        <button class="btn-primary w-auto" onclick="addConfigItem('investimentiNomi')">+</button>
+                        <input type="text" id="new-investimento-nome" placeholder="Nome investimento...">
+                        <input type="number" id="new-investimento-importo" placeholder="Importo €...">
+                        <button class="btn-primary w-auto" onclick="addTargetItem('investimentiNomi')">+</button>
                     </div>
 
                     <h3>Debiti</h3>
@@ -177,9 +185,9 @@
         <div class="card">
             <h2>Importazione / Esportazione File Dati</h2>
             <div class="flex-gap">
-                <button class="btn-primary" onclick="esportaFileDati()">📥 Scarica dati.js</button>
-                <input type="file" id="file-import" accept=".js,.json" style="display: none;" onchange="importaFileCompleto(this)">
-                <button class="btn-secondary" onclick="document.getElementById('file-import').click()">📤 Importa dati.js</button>
+                <button class="btn-primary" onclick="esportaFileDati()">📥 Scarica dati.json</button>
+                <input type="file" id="file-import" accept=".json,.js" style="display: none;" onchange="importaFileCompleto(this)">
+                <button class="btn-secondary" onclick="document.getElementById('file-import').click()">📤 Importa dati.json / dati.js</button>
             </div>
         </div>
     </div>

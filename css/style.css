@@ -130,6 +130,12 @@ header h1 {
     gap: 15px;
 }
 
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+}
+
 /* Griglia KPI unificata e compatta */
 .kpi-grid-unica {
     display: flex;
@@ -308,6 +314,28 @@ tr:hover {
 .config-item.inactive {
     opacity: 0.5;
     text-decoration: line-through;
+}
+
+/* Modifica inline delle voci di configurazione (spese, redditi, investimenti, ecc.) */
+.config-edit-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+.config-edit-form input {
+    flex: 1;
+    min-width: 80px;
+    margin-bottom: 0;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+}
+.config-edit-form .btn-editor {
+    width: auto;
+    padding: 4px 10px;
+    margin: 0;
+    white-space: nowrap;
 }
 
 .toggle-switch {

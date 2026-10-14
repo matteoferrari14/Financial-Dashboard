@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.5.0';
+const CACHE_NAME = 'pfd-cache-v1.6.5';
 
 // 2. Risorse statiche + librerie CDN per il supporto offline completo
 const urlsToCache = [
@@ -14,8 +14,7 @@ const urlsToCache = [
   './js/tab3-dettagli.js',
   './js/tab4-rebalancing.js',
   './js/tab5-etf-inserimenti.js',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js'
+  'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
 // Installazione: forza l'attivazione immediata del nuovo SW

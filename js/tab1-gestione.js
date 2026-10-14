@@ -1,3 +1,10 @@
+// Stato della modifica inline delle voci di configurazione (spese, redditi, investimenti, ecc.)
+let configEditKey = null;
+let configEditIndex = -1;
+
+// Voci di configurazione che hanno anche un importo (quota mensile) editabile
+const chiaviConImporto = new Set(['redditi', 'spese', 'investimentiNomi']);
+
 function renderizzaConfigurazioni() {
     const inputMesi = document.getElementById('config-mesi-emergenza');
     const inputSoglia = document.getElementById('config-soglia-extra');
@@ -12,16 +19,36 @@ function renderizzaConfigurazioni() {
         (dbRadice.configurazioneTarget[key] || []).forEach((item, index) => {
             const div = document.createElement('div');
             div.className = `config-item ${item.attivo ? '' : 'inactive'}`;
-            div.innerHTML = `
-                <span>${escapeHtml(item.nome)} ${item.importo !== undefined ? `: <strong>${item.importo} €</strong>` : ''}</span>
-                <div>
-                    <span class="toggle-switch ${item.attivo ? 'toggle-active' : 'toggle-inactive'}" 
-                          onclick="toggleItemActive('${key}', ${index})">
-                          ${item.attivo ? 'Attivo' : 'Inattivo'}
-                    </span>
-                    <button style="width:auto; padding:2px 6px; margin:0 0 0 5px;" class="btn-danger" onclick="deleteConfigItem('${key}', ${index})">✕</button>
-                </div>
-            `;
+
+            if (configEditKey === key && configEditIndex === index) {
+                // Modifica inline della voce (nome + importo per le voci con quota)
+                const campoImporto = chiaviConImporto.has(key)
+                    ? `<input type="number" step="0.01" id="edit-config-importo" value="${item.importo !== undefined ? item.importo : 0}" title="Importo (€)" onkeydown="if(event.key==='Enter'){salvaModificaConfigItem();}">`
+                    : '';
+                div.innerHTML = `
+                    <div class="config-edit-form">
+                        <input type="text" id="edit-config-nome" value="${escapeHtml(item.nome)}" title="Nome" onkeydown="if(event.key==='Enter'){salvaModificaConfigItem();}">
+                        ${campoImporto}
+                        <button class="btn-primary w-auto btn-editor" title="Salva" onclick="salvaModificaConfigItem()">✓</button>
+                        <button class="btn-secondary w-auto btn-editor" title="Annulla" onclick="annullaModificaConfigItem()">✕</button>
+                    </div>
+                `;
+            } else {
+                const testoImporto = chiaviConImporto.has(key)
+                    ? `: <strong>${item.importo !== undefined ? item.importo : 0} €</strong>`
+                    : '';
+                div.innerHTML = `
+                    <span>${escapeHtml(item.nome)}${testoImporto}</span>
+                    <div>
+                        <span class="toggle-switch ${item.attivo ? 'toggle-active' : 'toggle-inactive'}" 
+                              onclick="toggleItemActive('${key}', ${index})">
+                              ${item.attivo ? 'Attivo' : 'Inattivo'}
+                        </span>
+                        <button style="width:auto; padding:2px 6px; margin:0 0 0 5px;" class="btn-secondary" title="Modifica" onclick="modificaConfigItem('${key}', ${index})">✏️</button>
+                        <button style="width:auto; padding:2px 6px; margin:0 0 0 5px;" class="btn-danger" title="Elimina" onclick="deleteConfigItem('${key}', ${index})">✕</button>
+                    </div>
+                `;
+            }
             container.appendChild(div);
         });
     };
@@ -34,6 +61,39 @@ function renderizzaConfigurazioni() {
 
     aggiornaRiepilogoBudgetPagina1();
     aggiornaFooterVersione();
+}
+
+function modificaConfigItem(key, index) {
+    configEditKey = key;
+    configEditIndex = index;
+    renderizzaConfigurazioni();
+}
+
+function salvaModificaConfigItem() {
+    if (configEditKey === null || configEditIndex < 0) return;
+    const lista = dbRadice.configurazioneTarget[configEditKey];
+    const item = lista && lista[configEditIndex];
+    if (!item) { annullaModificaConfigItem(); return; }
+
+    const nomeIn = document.getElementById('edit-config-nome');
+    const impIn = document.getElementById('edit-config-importo');
+    if (!nomeIn || !nomeIn.value.trim()) { alert("Il nome non può essere vuoto."); return; }
+
+    item.nome = nomeIn.value.trim();
+    if (chiaviConImporto.has(configEditKey) && impIn) {
+        item.importo = parseFloat(impIn.value) || 0;
+    }
+
+    configEditKey = null;
+    configEditIndex = -1;
+    salvaNelLocalStorage();
+    renderizzaConfigurazioni();
+}
+
+function annullaModificaConfigItem() {
+    configEditKey = null;
+    configEditIndex = -1;
+    renderizzaConfigurazioni();
 }
 
 function salvaParametriEmergenza() {
@@ -62,17 +122,23 @@ function aggiornaRiepilogoBudgetPagina1() {
     const redditi = (dbRadice.configurazioneTarget.redditi || []).reduce((a,b) => a + (b.importo || 0), 0);
     const spese = (dbRadice.configurazioneTarget.spese || []).filter(s => s.attivo).reduce((a,b) => a + (b.importo || 0), 0);
     const risparmioAtteso = redditi - spese;
+    const investimenti = (dbRadice.configurazioneTarget.investimentiNomi || []).filter(i => i.attivo).reduce((a,b) => a + (b.importo || 0), 0);
+    const aumentoCashAtteso = redditi - spese - investimenti;
     const mesiEmergenza = dbRadice.configurazioneTarget.mesiEmergenza || 6;
     const fondoTarget = spese * mesiEmergenza;
 
     const elRedditi = document.getElementById('summary-redditi-target');
     const elSpese = document.getElementById('summary-spese-target');
+    const elInvestimenti = document.getElementById('summary-investimenti-target');
     const elRisparmio = document.getElementById('summary-risparmio-atteso');
+    const elAumentoCash = document.getElementById('summary-aumento-cash');
     const elFondo = document.getElementById('summary-fondo-target');
 
     if (elRedditi) elRedditi.innerText = redditi.toLocaleString() + " €";
     if (elSpese) elSpese.innerText = spese.toLocaleString() + " €";
+    if (elInvestimenti) elInvestimenti.innerText = investimenti.toLocaleString() + " €";
     if (elRisparmio) elRisparmio.innerText = risparmioAtteso.toLocaleString() + " €";
+    if (elAumentoCash) elAumentoCash.innerText = aumentoCashAtteso.toLocaleString() + " €";
     if (elFondo) elFondo.innerText = fondoTarget.toLocaleString() + " €";
 }
 
@@ -97,14 +163,18 @@ function addConfigItem(key) {
 function deleteConfigItem(key, index) {
     if (confirm("Eliminare questa voce?")) {
         dbRadice.configurazioneTarget[key].splice(index, 1);
+        // Azzera lo stato di modifica inline: eliminare una voce sposta gli indici
+        // e la voce in modifica potrebbe non coincidere più con configEditIndex.
+        configEditKey = null;
+        configEditIndex = -1;
         salvaNelLocalStorage();
         renderizzaTutto();
     }
 }
 
 function addTargetItem(key) {
-    // Il singolare non è sempre key senza l'ultima lettera (es. spese→spesa, redditi→reddito)
-    const singolare = { spese: 'spesa', redditi: 'reddito' }[key] || key.slice(0, -1);
+    // Il singolare non è sempre key senza l'ultima lettera (es. spese→spesa, redditi→reddito, investimentiNomi→investimento)
+    const singolare = { spese: 'spesa', redditi: 'reddito', investimentiNomi: 'investimento' }[key] || key.slice(0, -1);
     const nomeIn = document.getElementById(`new-${singolare}-nome`);
     const impIn = document.getElementById(`new-${singolare}-importo`);
     if (nomeIn && impIn && nomeIn.value.trim() && impIn.value) {
@@ -307,11 +377,11 @@ function renderizzaStoricoTabella() {
 }
 
 function esportaFileDati() {
-    const contenuto = "// Archivio dati privato esportato PFD\nwindow.dbFinanziarioLocale = " + JSON.stringify(dbRadice, null, 4) + ";";
-    const blob = new Blob([contenuto], { type: 'application/javascript' });
+    const contenuto = JSON.stringify(dbRadice, null, 4);
+    const blob = new Blob([contenuto], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'dati.js'; a.click();
+    a.href = url; a.download = 'dati.json'; a.click();
     URL.revokeObjectURL(url);
 }
 

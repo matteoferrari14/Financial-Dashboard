@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.1';
+const VERSIONE_APP = '1.6.5';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -60,6 +60,12 @@ function normalizzaConfigurazione() {
     });
     if (!dbRadice.configurazioneTarget.mesiEmergenza) dbRadice.configurazioneTarget.mesiEmergenza = 6;
 
+    // Migrazione: gli investimenti salvati prima dell'introduzione della quota mensile
+    // non hanno il campo importo: lo inizializziamo a 0 per renderlo sempre editabile.
+    (dbRadice.configurazioneTarget.investimentiNomi || []).forEach(item => {
+        if (item && item.importo === undefined) item.importo = 0;
+    });
+
     // Chiave API FMP per l'allocazione geografica (opzionale, salvata solo in locale)
     if (typeof dbRadice.configurazioneTarget.fmpApiKey !== 'string') dbRadice.configurazioneTarget.fmpApiKey = '';
 
@@ -103,20 +109,12 @@ function normalizzaConfigurazione() {
     });
 }
 
-// Configurazione condivisa zoom/pan/tooltip/colori per i grafici Chart.js
+// Configurazione condivisa tooltip/colori per i grafici Chart.js
+// (zoom/pan rimossi: si filtra la serie con i filtri data delle pagine 2 e 3)
 const ZOOM_PAN_OPTIONS = {
     interaction: { mode: 'index', intersect: false },
     plugins: {
         tooltip: { enabled: true, mode: 'index', intersect: false },
-        zoom: {
-            pan: { enabled: true, mode: 'x' },
-            zoom: {
-                wheel: { enabled: true },
-                pinch: { enabled: true },
-                mode: 'x',
-                scaleMode: 'y'
-            }
-        },
         legend: { labels: { color: '#f8fafc' } }
     },
     scales: {
@@ -136,12 +134,14 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-// Valori mensili degli ETF (misurazioni) e totali investimenti comprensivi di ETF
+// Valori mensili degli ETF (misurazioni) — usato dal monitoraggio ETF (pagine 4-5)
 function totaleETF(mese) {
     return Object.values(mese.etfValori || {}).reduce((a, v) => a + v, 0);
 }
+// Investimenti delle pagine 1-3 = SOLO i saldi inseriti in pagina 1 (investimentiDettaglio).
+// Gli ETF (pagine 4-5) sono monitoraggio separato: NON confluiscono nei totali di pagina 1-3.
 function investimentiTotali(mese) {
-    return Object.values(mese.investimentiDettaglio || {}).reduce((a, v) => a + v, 0) + totaleETF(mese);
+    return Object.values(mese.investimentiDettaglio || {}).reduce((a, v) => a + v, 0);
 }
 function ultimoMeseMisurato() {
     if (!Array.isArray(dbRadice.storicoMesi) || dbRadice.storicoMesi.length === 0) return null;
