@@ -240,6 +240,8 @@ function renderizzaRebalancingTab() {
     `;
     tbody.appendChild(trTot);
 
+/*  MFE rimosso visualizzazione warning fuori soglia: non serve più, il warning è già nella tabella con la colonna scostamento
+
     if (warningEl) {
         if (fuoriSoglia.length > 0) {
             warningEl.style.display = 'block';
@@ -253,6 +255,7 @@ function renderizzaRebalancingTab() {
             warningEl.style.display = 'none';
         }
     }
+*/
 
     renderizzaGraficoGeografico(attivi);
     renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget);
