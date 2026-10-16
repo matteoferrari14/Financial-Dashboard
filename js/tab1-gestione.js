@@ -244,25 +244,17 @@ function salvaMese() {
 
     const editIdx = parseInt(document.getElementById('edit-index').value);
 
-    // Conserva i dati ETF eventualmente già registrati per questo mese (pagina 5):
-    // la pagina 1 gestisce solo saldi banca/investimenti/debiti.
-    let meseEsistente = null;
-    let idxEsistente = -1;
-    if (editIdx >= 0) {
-        idxEsistente = editIdx;
-        meseEsistente = dbRadice.storicoMesi[editIdx];
-    } else {
-        idxEsistente = dbRadice.storicoMesi.findIndex(m => m.data === dataVal);
-        if (idxEsistente >= 0) meseEsistente = dbRadice.storicoMesi[idxEsistente];
-    }
+    // La pagina 1 gestisce SOLO i saldi banca/investimenti/debiti (storicoMesi):
+    // i dati ETF vivono in misurazioniEtf (pagine 4-5) e non vengono toccati qui.
+    const idxEsistente = (editIdx >= 0)
+        ? editIdx
+        : dbRadice.storicoMesi.findIndex(m => m.data === dataVal);
 
     const nuovoMese = {
         data: dataVal,
         bancaDettaglio: raccogliValori('banca'),
         investimentiDettaglio: raccogliValori('inv'),
-        debiti: raccogliValori('deb'),
-        etfValori: (meseEsistente && meseEsistente.etfValori) || {},
-        etfVersamenti: (meseEsistente && meseEsistente.etfVersamenti) || {}
+        debiti: raccogliValori('deb')
     };
 
     if (idxEsistente >= 0) {

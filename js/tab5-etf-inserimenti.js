@@ -1,8 +1,9 @@
 // ===== PAGINA 5: INSERIMENTI ETF (misurazioni mensili valore + versato PAC) =====
 // I valori correnti e i versamenti (PAC) di ogni ETF si registrano qui, NON nella
-// pagina 1 (che gestisce solo saldi banche/investimenti/debiti). I dati confluiscono
-// in storicoMesi.etfValori / storicoMesi.etfVersamenti sulla stessa data del mese,
-// così monitoraggio e performance di pagina 4 si aggiornano automaticamente.
+// pagina 1 (che gestisce solo saldi banche/investimenti/debiti). I dati vivono in un
+// archivio dedicato (dbRadice.misurazioniEtf) completamente SEPARATO dallo storico
+// delle pagine 1-3 (dbRadice.storicoMesi): misurare gli ETF anche in date diverse
+// da quelle di pagina 1 NON crea mesi nelle pagine 1-2-3.
 
 function renderizzaFormEtf() {
     const containerEtf = document.getElementById('form-fields-etf');
@@ -24,7 +25,7 @@ function renderizzaFormEtf() {
 }
 
 function copiaUltimaMisurazioneETF() {
-    const ultimo = ultimoMeseMisurato();
+    const ultimo = ultimaMisurazioneEtf();
     if (!ultimo) {
         alert("Nessuna misurazione precedente disponibile.");
         return;
@@ -55,17 +56,15 @@ function salvaMisurazioneETF() {
         etfVersamenti[input.dataset.id] = parseFloat(input.value) || 0;
     });
 
-    // Upsert: aggiorna la misurazione con la stessa data (se esiste) o la crea
-    let mese = dbRadice.storicoMesi.find(m => m.data === dataVal);
-    if (mese) {
-        mese.etfValori = etfValori;
-        mese.etfVersamenti = etfVersamenti;
+    // Upsert nell'archivio dedicato misurazioniEtf (separato dallo storico pagine 1-3)
+    if (!Array.isArray(dbRadice.misurazioniEtf)) dbRadice.misurazioniEtf = [];
+    let misura = dbRadice.misurazioniEtf.find(m => m.data === dataVal);
+    if (misura) {
+        misura.etfValori = etfValori;
+        misura.etfVersamenti = etfVersamenti;
     } else {
-        dbRadice.storicoMesi.push({
+        dbRadice.misurazioniEtf.push({
             data: dataVal,
-            bancaDettaglio: {},
-            investimentiDettaglio: {},
-            debiti: {},
             etfValori: etfValori,
             etfVersamenti: etfVersamenti
         });
@@ -81,7 +80,7 @@ function renderizzaStoricoETF() {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const conEtf = dbRadice.storicoMesi.filter(m => {
+    const conEtf = (Array.isArray(dbRadice.misurazioniEtf) ? dbRadice.misurazioniEtf : []).filter(m => {
         const v = Object.keys(m.etfValori || {}).length;
         const p = Object.keys(m.etfVersamenti || {}).length;
         return v > 0 || p > 0;
@@ -106,7 +105,7 @@ function renderizzaStoricoETF() {
 }
 
 function modificaMisurazioneETF(data) {
-    const m = dbRadice.storicoMesi.find(x => x.data === data);
+    const m = (dbRadice.misurazioniEtf || []).find(x => x.data === data);
     if (!m) return;
     const inputData = document.getElementById('input-data-etf');
     if (inputData) inputData.value = data;
@@ -122,12 +121,8 @@ function modificaMisurazioneETF(data) {
 }
 
 function eliminaMisurazioneETF(data) {
-    if (!confirm("Eliminare i dati ETF della misurazione del " + data + "?")) return;
-    const m = dbRadice.storicoMesi.find(x => x.data === data);
-    if (m) {
-        delete m.etfValori;
-        delete m.etfVersamenti;
-    }
+    if (!confirm("Eliminare la misurazione ETF del " + data + "?")) return;
+    dbRadice.misurazioniEtf = (dbRadice.misurazioniEtf || []).filter(x => x.data !== data);
     salvaNelLocalStorage();
     renderizzaTutto();
 }

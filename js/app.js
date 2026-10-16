@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.9';
+const VERSIONE_APP = '1.6.10';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -16,6 +16,7 @@ let dbRadice = {
         sogliaScostamentoEtf: 10
     },
     storicoMesi: [],
+    misurazioniEtf: [],
     dettaglioAssets: []
 };
 
@@ -73,7 +74,7 @@ function normalizzaConfigurazione() {
     if (typeof dbRadice.configurazioneTarget.sogliaScostamentoEtf !== 'number' || isNaN(dbRadice.configurazioneTarget.sogliaScostamentoEtf)) dbRadice.configurazioneTarget.sogliaScostamentoEtf = 10;
 
     // Migrazione (v1.4.0): dettaglioAssets → configurazioneTarget.etfs (ISIN + quota di allocazione %).
-    // I valori correnti ora appartengono alle misurazioni mensili (storicoMesi.etfValori).
+    // I valori correnti confluiscono poi in misurazioniEtf (v1.6.9), separate da storicoMesi.
     if (!Array.isArray(dbRadice.configurazioneTarget.etfs)) {
         const vecchiAsset = Array.isArray(dbRadice.dettaglioAssets) ? dbRadice.dettaglioAssets : [];
         dbRadice.configurazioneTarget.etfs = vecchiAsset.map(a => ({
@@ -106,6 +107,38 @@ function normalizzaConfigurazione() {
         if (e.attivo === undefined) e.attivo = true;
         if (e.geo === undefined) e.geo = null;
         if (e.isin === undefined) e.isin = '';
+    });
+
+    // Migrazione (v1.6.9): misurazioni ETF → array dedicato misurazioniEtf.
+    // Prima i dati ETF vivevano dentro storicoMesi: una misurazione ETF in una data
+    // diversa da quelle di pagina 1 creava un "mese" fantasma visibile in pagine 1-3.
+    // Da ora pagine 1-3 (storicoMesi) e pagine 4-5 (misurazioniEtf) sono separate.
+    if (!Array.isArray(dbRadice.misurazioniEtf)) dbRadice.misurazioniEtf = [];
+    const mesiMigrare = (dbRadice.storicoMesi || []).filter(m => m.etfValori !== undefined || m.etfVersamenti !== undefined);
+    mesiMigrare.forEach(m => {
+        const datiEtf = {
+            etfValori: m.etfValori || {},
+            etfVersamenti: m.etfVersamenti || {}
+        };
+        const esistente = dbRadice.misurazioniEtf.find(x => x.data === m.data);
+        if (esistente) {
+            esistente.etfValori = { ...esistente.etfValori, ...datiEtf.etfValori };
+            esistente.etfVersamenti = { ...esistente.etfVersamenti, ...datiEtf.etfVersamenti };
+        } else {
+            dbRadice.misurazioniEtf.push({ data: m.data, ...datiEtf });
+        }
+        delete m.etfValori;
+        delete m.etfVersamenti;
+    });
+    if (mesiMigrare.length > 0) dbRadice.misurazioniEtf.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    // Rimuove da storicoMesi i mesi rimasti senza alcun dato di pagina 1
+    // (es. i "mesi" creati in passato dalla sola pagina 5).
+    dbRadice.storicoMesi = (dbRadice.storicoMesi || []).filter(m => {
+        return ['bancaDettaglio', 'investimentiDettaglio', 'debiti'].some(ramo => {
+            const o = m[ramo];
+            return o && typeof o === 'object' && Object.keys(o).length > 0;
+        });
     });
 }
 
@@ -146,6 +179,13 @@ function investimentiTotali(mese) {
 function ultimoMeseMisurato() {
     if (!Array.isArray(dbRadice.storicoMesi) || dbRadice.storicoMesi.length === 0) return null;
     return [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-1)[0];
+}
+
+// Ultima misurazione ETF (pagine 4-5): uso esclusivo dell'archivio misurazioniEtf,
+// separato dallo storico delle pagine 1-3 (storicoMesi).
+function ultimaMisurazioneEtf() {
+    if (!Array.isArray(dbRadice.misurazioniEtf) || dbRadice.misurazioniEtf.length === 0) return null;
+    return [...dbRadice.misurazioniEtf].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-1)[0];
 }
 
 function switchTab(tabId) {

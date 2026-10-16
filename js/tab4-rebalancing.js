@@ -1,7 +1,8 @@
 // ===== TAB 4: ASSET & REBALANCING (v1.5.0) =====
 // Architettura: gli ETF si configurano UNA volta (nome + ISIN + quota di versamento
 // mensile in €). Il peso target deriva dalle quote mensili (es. 50€ su 200€/mese = 25%).
-// Il valore corrente si misura a ogni misurazione nella pagina 5 (storicoMesi.etfValori).
+// Il valore corrente si misura a ogni misurazione nella pagina 5 e vive nell'archivio
+// dedicato dbRadice.misurazioniEtf, completamente SEPARATO dallo storico pagine 1-3.
 // La pagina 4 è slegata dalle altre: i pesi si calcolano SOLO sugli ETF attivi.
 // L'allocazione geografica proviene dall'API FMP (etf-country-distribution),
 // senza fallback benchmark: se non sincronizzata i dati restano vuoti.
@@ -102,7 +103,7 @@ function etfAttivi() {
 
 // Valori correnti degli ETF (ultima misurazione dalla pagina 5, inclusi gli inattivi: restano visibili)
 function valoriCorrentiETF() {
-    const ultimo = ultimoMeseMisurato();
+    const ultimo = ultimaMisurazioneEtf();
     const valori = {};
     (dbRadice.configurazioneTarget.etfs || []).forEach(e => {
         valori[e.id] = (ultimo && ultimo.etfValori && ultimo.etfValori[e.id] !== undefined) ? ultimo.etfValori[e.id] : 0;
@@ -139,8 +140,6 @@ function renderizzaRebalancingTab() {
     const totaleInvestito = attivi.reduce((a, e) => a + (valori[e.id] || 0), 0);
 
     const soglia = dbRadice.configurazioneTarget.sogliaScostamentoEtf;
-    const warningEl = document.getElementById('rebalancing-warning');
-    const fuoriSoglia = [];
 
     etfs.forEach((etf) => {
         const attivo = !!etf.attivo;
@@ -154,8 +153,8 @@ function renderizzaRebalancingTab() {
         const bandaPp = (soglia / 100) * pesoTarget;
         const inSoglia = Math.abs(diffPp) <= bandaPp;
         // Se non c'è ancora nessuna misurazione (totale 0) nessun ETF è realmente fuori
-        // banda: si evita un warning ingannevole "sotto target" a dati non ancora inseriti.
-        if (attivo && totaleInvestito > 0 && !inSoglia) fuoriSoglia.push({ etf, pesoTarget, pesoAttualePct, diffPp, valoreAttuale, bandaPp });
+        // banda: il warning di allocazione è stato rimosso (lo scostamento è già visibile
+        // nella colonna dedicata della tabella).
 
         // Freccia di stato accanto al peso attuale (▲ sopra, ▼ sotto, = in target entro ±2 p.p.)
         let freccia = '=';
@@ -186,7 +185,7 @@ function renderizzaRebalancingTab() {
         }
 
         // Valore in SOLA LETTURA: arriva dall'ultima misurazione della pagina 5
-        // (storicoMesi.etfValori). Per modificarlo bisogna salvare una nuova
+        // (misurazioniEtf). Per modificarlo bisogna salvare una nuova
         // misurazione in "ETF - Inserimenti" (pagina 5), mai direttamente qui.
         const tdValore = `${valoreAttuale.toLocaleString()} €`;
 
@@ -239,23 +238,6 @@ function renderizzaRebalancingTab() {
         <td></td>
     `;
     tbody.appendChild(trTot);
-
-/*  MFE rimosso visualizzazione warning fuori soglia: non serve più, il warning è già nella tabella con la colonna scostamento
-
-    if (warningEl) {
-        if (fuoriSoglia.length > 0) {
-            warningEl.style.display = 'block';
-            warningEl.innerHTML = `⚠️ <strong>Warning allocazione (soglia ${soglia}% relativa al target del singolo ETF):</strong> ${fuoriSoglia.map(f => {
-                const targetEuro = (f.pesoTarget / 100) * totaleInvestito;
-                const limiteBasso = targetEuro - (soglia / 100) * targetEuro;
-                const limiteAlto = targetEuro + (soglia / 100) * targetEuro;
-                return `<strong>${escapeHtml(f.etf.nome)}</strong> a ${f.valoreAttuale.toLocaleString()}€ (${f.pesoAttualePct.toFixed(1)}%, target ${f.pesoTarget.toFixed(1)}%) — fuori banda ${limiteBasso.toLocaleString()}€–${limiteAlto.toLocaleString()}€`;
-            }).join(' · ')}.`;
-        } else {
-            warningEl.style.display = 'none';
-        }
-    }
-*/
 
     renderizzaGraficoGeografico(attivi);
     renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget);
@@ -326,14 +308,14 @@ function calcolaRibilanciamento() {
 }
 
 // Il "Valore Attuale" della tabella è SOLO in lettura: proviene dall'ultima
-// misurazione salvata nella pagina 5 (storicoMesi.etfValori). Le modifiche si
+// misurazione salvata nella pagina 5 (misurazioniEtf). Le modifiche si
 // fanno esclusivamente in "ETF - Inserimenti", quindi qui non c'è più un input.
 
 // ---------- Performance ETF: rendimento al netto del PAC ----------
 
 // Serie mensile cumulativa di un ETF: { data, valore (null se non misurato), versato (cumulato) }
 function versamentiCumulatiETF(etfId) {
-    const mesi = [...dbRadice.storicoMesi].sort((a, b) => new Date(a.data) - new Date(b.data));
+    const mesi = [...(dbRadice.misurazioniEtf || [])].sort((a, b) => new Date(a.data) - new Date(b.data));
     const serie = [];
     let cumulato = 0;
     mesi.forEach(m => {

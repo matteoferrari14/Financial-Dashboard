@@ -346,7 +346,6 @@
                     <button class="btn-primary" onclick="calcolaRibilanciamento()">⚖️ Calcola Ribilanciamento (solo acquisti)</button>
                 </div>
             </div>
-            <div id="rebalancing-warning" class="banner-alert banner-warning" style="display:none;"></div>
             <div id="rebalancing-result" class="banner-alert banner-info" style="display:none;"></div>
             <div style="overflow-x: auto;">
                 <table>
@@ -435,7 +434,7 @@
                 <h2>Inserimento Misurazione ETF</h2>
                 <button class="btn-secondary w-auto" onclick="copiaUltimaMisurazioneETF()">📋 Copia da ultima misurazione</button>
             </div>
-            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. I dati confluiscono nella stessa misurazione mensile della pagina 1 (stessa data): monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. Le misurazioni ETF vivono in un archivio dedicato, <strong>separato</strong> dalle pagine 1-2-3 (che restano legate solo a saldi banche/investimenti/debiti): puoi misurare gli ETF anche in date diverse da quelle di pagina 1 senza effetti sulle altre pagine. Monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente da questa sezione.</p>
             <div style="max-width:250px;">
                 <label>Data Misurazione</label>
                 <input type="date" id="input-data-etf">
