@@ -495,19 +495,52 @@ function salvaApiKeyFmp() {
     alert('Chiave API FMP salvata localmente (mai inviata altrove).');
 }
 
-// ISIN → ticker: Yahoo Finance (gratis, senza chiave) → fallback ricerca FMP con la stessa chiave API.
+// ISIN → ticker. Yahoo blocca le richieste cross-origin dal browser (non invia header CORS
+// su origine diversa da finance.yahoo.com), quindi si tenta: 1) Yahoo diretto, 2) Yahoo via
+// proxy CORS AllOrigins (gratis, Access-Control-Allow-Origin: *), 3) ricerca FMP solo se
+// esiste una chiave API salvata.
 async function risolviTickerDaIsin(isin) {
+    isin = String(isin || '').trim().toUpperCase();
+    if (!isin) throw new Error("ISIN mancante.");
+
+    // Preferisce i risultati ETF; altrimenti usa il primo simbolo valido trovato.
+    const estraiSymbol = (data) => {
+        const quotes = (data && data.quotes) || [];
+        const q = quotes.find(x => x.quoteType === 'ETF') || quotes[0];
+        return (q && q.symbol) ? q.symbol : null;
+    };
+
     const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(isin)}&quotesCount=5&newsCount=0`;
+
+    // 1) Yahoo diretto: dal browser fallisce quasi sempre per CORS, si prosegue col proxy.
     try {
         const resp = await fetch(yahooUrl, { headers: { 'Accept': 'application/json' } });
         if (resp.ok) {
-            const data = await resp.json();
-            const quotes = (data && data.quotes) || [];
-            const q = quotes.find(x => x.quoteType === 'ETF') || quotes[0];
-            if (q && q.symbol) return q.symbol;
+            const symbol = estraiSymbol(await resp.json());
+            if (symbol) return symbol;
         }
-    } catch (e) { /* prosegue con FMP */ }
+    } catch (e) { /* CORS o rete: prosegue col proxy */ }
 
+    // 2) Yahoo via AllOrigins (raw): Access-Control-Allow-Origin: * → funziona dal browser
+    //    senza chiave API. Yahoo a volte risponde con rate-limit lato proxy (quotes vuoto),
+    //    quindi si ritenta un paio di volte prima di passare a FMP.
+    const viaProxy = async (url, tentativi = 3) => {
+        for (let i = 0; i < tentativi; i++) {
+            try {
+                const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+                if (!resp.ok) continue;
+                const symbol = estraiSymbol(JSON.parse(await resp.text()));
+                if (symbol) return symbol;
+            } catch (e) { /* il proxy può rispondere con HTML o dati vuoti: ritenta */ }
+            await new Promise(res => setTimeout(res, 1200));
+        }
+        return null;
+    };
+    const symbolProxy = await viaProxy(yahooUrl);
+    if (symbolProxy) return symbolProxy;
+
+    // 3) FMP: solo se è salvata una chiave. Nota: il /search di FMP cerca per simbolo/nome,
+    //    non per ISIN, quindi spesso non restituisce nulla: è un ultimo fallback.
     const chiave = dbRadice.configurazioneTarget.fmpApiKey;
     if (chiave) {
         try {
@@ -565,22 +598,30 @@ async function getAllocazionePaesi(ticker) {
 async function sincronizzaTuttiETF() {
     const etfs = (dbRadice.configurazioneTarget.etfs || []).filter(e => e.isin);
     if (etfs.length === 0) { alert("Nessun ETF con ISIN da sincronizzare."); return; }
-    let ok = 0, ko = 0;
+    let ok = 0;
+    const falliti = [];
     for (const etf of etfs) {
         try {
-            const ticker = await risolviTickerDaIsin(etf.isin);
+            // Priorità al ticker inserito manualmente: non va risolto dall'ISIN.
+            let ticker = etf.ticker;
+            if (!ticker) ticker = await risolviTickerDaIsin(etf.isin);
             etf.ticker = ticker;
             const pesi = await getAllocazionePaesi(ticker);
             etf.geo = pesi;
             etf.geoData = new Date().toISOString().slice(0, 10);
             ok++;
         } catch (e) {
-            ko++;
+            falliti.push(etf.nome);
         }
         salvaNelLocalStorage();
     }
     renderizzaTutto();
-    alert(`Sincronizzazione completata: ${ok} riusciti, ${ko} falliti.`);
+    let msg = `Sincronizzazione completata: ${ok} riusciti, ${falliti.length} falliti.`;
+    if (falliti.length > 0) {
+        msg += '\n\nFalliti: ' + falliti.join(', ') +
+            '\nSuggerimento: per questi ETF inserisci il ticker nel campo "Ticker (per API, se noto)" (es. VWCE), salva e riprova.';
+    }
+    alert(msg);
 }
 
 
@@ -653,7 +694,9 @@ async function sincronizzaETFDaPopup() {
     try {
         const etf = (dbRadice.configurazioneTarget.etfs || []).find(e => e.id === popupEtfId);
         if (!etf) throw new Error('ETF non trovato.');
-        const ticker = await risolviTickerDaIsin(etf.isin);
+        // Priorità al ticker manuale già salvato (es. VWCE); la risoluzione da ISIN è il fallback.
+        let ticker = etf.ticker;
+        if (!ticker) ticker = await risolviTickerDaIsin(etf.isin);
         etf.ticker = ticker;
         const pesi = await getAllocazionePaesi(ticker);
         etf.geo = pesi;
