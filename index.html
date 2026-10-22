@@ -303,7 +303,7 @@
                 <h2>Configurazione ETF in Portafoglio</h2>
                 <button class="btn-secondary w-auto" onclick="sincronizzaTuttiETF()">🔄 Sincronizza tutti (online)</button>
             </div>
-            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (nome + ISIN + quota di versamento mensile in €). Il peso target si ricava automaticamente dalle quote mensili (es. 50€ su 200€/mese → 25%). Il valore corrente di ogni ETF si inserisce a ogni misurazione nella pagina 5 (ETF - Inserimenti); qui si monitora lo scostamento dall'atteso. Un ETF può essere escluso dalla valutazione col toggle Attivo/Inattivo (come le spese di pagina 1).</p>
+            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (nome + ISIN + quota di versamento mensile in €). Il codice ISIN identifica lo strumento: da lì l'app ricava da sola il simbolo di Borsa per scaricare i pesi per paese. Il peso target si ricava automaticamente dalle quote mensili (es. 50€ su 200€/mese → 25%). Il valore corrente di ogni ETF si inserisce a ogni misurazione nella pagina 5 (ETF - Inserimenti); qui si monitora lo scostamento dall'atteso. Un ETF può essere escluso dalla valutazione col toggle Attivo/Inattivo (come le spese di pagina 1).</p>
 
             <div class="grid-2">
                 <div>
@@ -312,10 +312,6 @@
 
                     <label>ISIN</label>
                     <input type="text" id="asset-isin" placeholder="es. IE00BK5BQT33">
-
-                    <label>Ticker (per API, se noto)</label>
-                    <input type="text" id="asset-ticker" placeholder="es. VWCE">
-                    <p class="text-muted" style="font-size:0.75rem; margin-top:-6px;">Facoltativo: simbolo di Borsa (es. VWCE). Serve solo per la sincronizzazione geografica; se vuoto viene ricavato automaticamente dall'ISIN.</p>
 
                     <label>Quota di Versamento Mensile (€)</label>
                     <input type="number" id="asset-quota-mensile" placeholder="es. 100" step="0.01" min="0">
@@ -409,6 +405,13 @@
                     <button class="btn-secondary w-auto" onclick="chiudiPopupETF()">✕ Chiudi</button>
                 </div>
                 <p class="text-muted" id="etf-modal-status" style="font-size:0.85rem;"></p>
+                <!-- Compare solo se la risoluzione automatica del ticker fallisce: è l'unico
+                     punto in cui si può indicarlo a mano, per non appesantire il form principale. -->
+                <div id="etf-modal-ticker-box" style="display:none; margin-bottom:10px;">
+                    <label style="font-size:0.85rem;">Ticker (solo se la ricerca automatica non lo trova)</label>
+                    <input type="text" id="etf-modal-ticker" placeholder="es. EXUS.L" autocomplete="off">
+                    <p class="text-muted" style="font-size:0.75rem; margin-top:-4px;">Simbolo di Borsa dell'ETF, ricavabile dal sito dell'emittente. Viene usato solo per scaricare i pesi per paese.</p>
+                </div>
                 <div class="grid-2">
                     <div>
                         <table id="etf-modal-table">

@@ -19,7 +19,6 @@ function salvaETF() {
     const nome = document.getElementById('asset-nome').value.trim();
     const isin = document.getElementById('asset-isin').value.trim().toUpperCase();
     const quotaMensile = parseFloat(document.getElementById('asset-quota-mensile').value) || 0;
-    const ticker = document.getElementById('asset-ticker').value.trim();
 
     if (!nome) { alert("Inserisci il nome dell'ETF."); return; }
     if (!isin) { alert("Inserisci l'ISIN dell'ETF (necessario per la sincronizzazione geografica)."); return; }
@@ -30,15 +29,16 @@ function salvaETF() {
 
     if (editIdx >= 0 && etfs[editIdx]) {
         const prec = etfs[editIdx];
-        etfs[editIdx] = { ...prec, nome, isin, quotaMensile, ticker: ticker || prec.ticker };
+        // Il ticker non è più modificabile dal form: si conserva quello già risolto, e si
+        // azzera solo se cambia l'ISIN (il simbolo precedente apparterrebbe a un altro ETF).
+        etfs[editIdx] = { ...prec, nome, isin, quotaMensile, ticker: prec.isin === isin ? prec.ticker : undefined };
         if (prec.isin !== isin) {
             // ISIN cambiato: i dati geografici sincronizzati non valgono più
             etfs[editIdx].geo = null;
             etfs[editIdx].geoData = undefined;
-            etfs[editIdx].ticker = ticker || undefined;
         }
     } else {
-        etfs.push({ id: Date.now(), nome, isin, quotaMensile, ticker: ticker || undefined, attivo: true, geo: null });
+        etfs.push({ id: Date.now(), nome, isin, quotaMensile, ticker: undefined, attivo: true, geo: null });
     }
 
     salvaNelLocalStorage();
@@ -50,7 +50,6 @@ function annullaModificaETF() {
     document.getElementById('asset-edit-index').value = "-1";
     document.getElementById('asset-nome').value = '';
     document.getElementById('asset-isin').value = '';
-    document.getElementById('asset-ticker').value = '';
     document.getElementById('asset-quota-mensile').value = '';
     const btn = document.getElementById('btn-save-etf');
     if (btn) btn.innerText = 'Salva ETF';
@@ -64,7 +63,6 @@ function modificaETF(index) {
     document.getElementById('asset-edit-index').value = index;
     document.getElementById('asset-nome').value = etf.nome;
     document.getElementById('asset-isin').value = etf.isin || '';
-    document.getElementById('asset-ticker').value = etf.ticker || '';
     document.getElementById('asset-quota-mensile').value = etf.quotaMensile || '';
     const btn = document.getElementById('btn-save-etf');
     if (btn) btn.innerText = 'Aggiorna ETF';
@@ -497,9 +495,9 @@ function salvaApiKeyFmp() {
 
 // ISIN → ticker. Nel browser NON si può chiamare Yahoo Finance direttamente (a origine diversa
 // da finance.yahoo.com Yahoo NON invia Access-Control-Allow-Origin → il browser blocca), quindi
-// la ricerca viene instradata attraverso una lista di proxy CORS pubblici e gratuiti, provati
-// in rotazione con timeout: appena uno restituisce un simbolo ci si ferma. Ultimo fallback:
-// /search di FMP (solo se è salvata una chiave API).
+// la ricerca passa da una rotazione di proxy CORS pubblici: appena uno risponde ci si ferma.
+// I proxy sono usati in parallelo a coppie: così la risoluzione impiega il tempo del primo
+// che risponde invece della somma dei timeout. Ultimo fallback: /search di FMP (solo se c'è chiave).
 async function risolviTickerDaIsin(isin) {
     isin = String(isin || '').trim().toUpperCase();
     if (!isin) throw new Error("ISIN mancante.");
@@ -513,73 +511,79 @@ async function risolviTickerDaIsin(isin) {
 
     const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(isin)}&quotesCount=5&newsCount=0`;
 
-    // Proxy che passano il JSON di Yahoo così com'è.
-    const rawProxies = [
-        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-        (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-        (u) => `https://api.cors.lol/?url=${encodeURIComponent(u)}`,
-        (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`
-    ];
-    // Proxy che restituiscono un wrapper { contents: "<json di Yahoo>" }. Richiedono l'header
-    // Origin, che il browser invia automaticamente alle richieste cross-origin.
-    const wrapperProxies = [
-        (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-        (u) => `https://whateverorigin.org/get?url=${encodeURIComponent(u)}`
+    // Proxy che inoltrano il JSON di Yahoo. 'raw = true' passano il corpo così com'è,
+    // 'raw = false' lo incapsulano in { contents: "<json>" }.
+    // L'ordine riflette l'affidabilità verificata: r.jina.ai risponde in <1s, gli altri
+    // (gratuiti e senza registrazione) vanno spesso in rate-limit o richiedono una chiave.
+    const proxies = [
+        { nome: 'r.jina.ai', raw: true, jina: true, url: (u) => `https://r.jina.ai/${u}` },
+        { nome: 'codetabs', raw: true, url: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+        { nome: 'corsproxy.org', raw: true, url: (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}` },
+        { nome: 'allorigins-raw', raw: true, url: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+        { nome: 'allorigins-get', raw: false, url: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}` },
+        { nome: 'cors.lol', raw: true, url: (u) => `https://api.cors.lol/?url=${encodeURIComponent(u)}` },
+        { nome: 'whateverorigin', raw: false, url: (u) => `https://whateverorigin.org/get?url=${encodeURIComponent(u)}` }
     ];
 
-    const fetchConTimeout = async (url, ms) => {
+    const fetchConTimeout = async (url, ms, headerExtra) => {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), ms);
-        try { return await fetch(url, { signal: ctrl.signal }); }
-        finally { clearTimeout(t); }
-    };
-    const tenta = async (fn) => {
-        try { return await fn(); } catch (e) { return null; }
-    };
-    const bodyJson = async (resp) => {
-        if (!resp || !resp.ok) return null;
-        const text = await tenta(() => resp.text());
-        if (!text || !String(text).trim().startsWith('{')) return null;
-        return JSON.parse(text);
-    };
-    const normalizza = async (resp) => {
-        const data = await bodyJson(resp);
-        return data ? estraiSymbol(data) : null;
-    };
-    const normalizzaWrapper = async (resp) => {
-        const wrapper = await bodyJson(resp);
-        return (wrapper && wrapper.contents) ? estraiSymbol(JSON.parse(wrapper.contents)) : null;
+        try {
+            // Alcuni proxy (corsproxy.io, whateverorigin) pretendono l'header Origin: nei
+            // rimborsi via service worker potrebbe mancare, quindi lo si dichiara esplicitamente.
+            return await fetch(url, {
+                signal: ctrl.signal,
+                headers: Object.assign({ 'Origin': location.origin }, headerExtra || {})
+            });
+        } finally { clearTimeout(t); }
     };
 
-    // Rotazione sui proxy "raw", poi sui "wrapper", con limite di tempo complessivo
-    // per non rallentare troppo la sincronizzazione di più ETF.
+    // Prova un singolo proxy: restituisce il simbolo oppure null (mai eccezioni).
+    const provaProxy = async (p) => {
+        try {
+            // X-Respond-With: text → r.jina.ai restituisce il corpo originale (JSON) invece del Markdown.
+            const resp = await fetchConTimeout(p.url(yahooUrl), 6000, p.jina ? { 'X-Respond-With': 'text' } : null);
+            if (!resp || !resp.ok) return null;
+            const text = await resp.text();
+            if (!text || !text.trim().startsWith('{')) return null;
+            let data = JSON.parse(text);
+            if (!p.raw && data && data.contents) data = JSON.parse(data.contents);
+            return estraiSymbol(data);
+        } catch (e) { return null; }
+    };
+
+    // Rotazione a coppie (r.jina.ai/codetabs, poi corsproxy.org/allorigins, poi gli ultimi):
+    // si attende il primo che risponde. Due passate, perché i proxy pubblici rifiutano in
+    // modo intermittente (rate-limit, 429/5xx): un secondo giro recupera i casi transitori.
     const MAX_MS = 20000;
     const inizio = Date.now();
-    for (const build of rawProxies) {
+    for (let passata = 0; passata < 2; passata++) {
+        for (let i = 0; i < proxies.length; i += 2) {
+            if (Date.now() - inizio > MAX_MS) break;
+            const coppia = proxies.slice(i, i + 2);
+            const simbolo = await Promise.any(
+                coppia.map(p => provaProxy(p).then(s => s ? s : Promise.reject(new Error('vuoto'))))
+            ).catch(() => null);
+            if (simbolo) return simbolo;
+        }
         if (Date.now() - inizio > MAX_MS) break;
-        const symbol = await tenta(async () => normalizza(await fetchConTimeout(build(yahooUrl), 3000)));
-        if (symbol) return symbol;
-    }
-    for (const build of wrapperProxies) {
-        if (Date.now() - inizio > MAX_MS) break;
-        const symbol = await tenta(async () => normalizzaWrapper(await fetchConTimeout(build(yahooUrl), 3000)));
-        if (symbol) return symbol;
     }
 
     // Fallback FMP: solo se è salvata una chiave. Nota: il /search di FMP cerca per
     // simbolo/nome, non per ISIN, quindi spesso non restituisce nulla: è un ultimo tentativo.
     const chiave = dbRadice.configurazioneTarget.fmpApiKey;
     if (chiave) {
-        const symbol = await tenta(async () => {
+        try {
             const resp = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(isin)}&limit=5&apikey=${encodeURIComponent(chiave)}`);
-            if (!resp.ok) return null;
-            const data = await resp.json();
-            return (Array.isArray(data) && data[0] && data[0].symbol) ? data[0].symbol : null;
-        });
-        if (symbol) return symbol;
+            if (resp.ok) {
+                const data = await resp.json();
+                const simbolo = Array.isArray(data) && data[0] && data[0].symbol ? data[0].symbol : null;
+                if (simbolo) return simbolo;
+            }
+        } catch (e) { /* nessun risultato */ }
     }
 
-    throw new Error("Impossibile risolvere il ticker dall'ISIN tramite i servizi gratuiti (temporaneamente instabili). Inserisci il ticker manualmente nel campo dedicato (es. EXUS.L) e salva l'ETF prima di sincronizzare.");
+    throw new Error("ticker non trovato per l'ISIN " + isin);
 }
 
 function normalizzaPesi(data) {
@@ -599,7 +603,8 @@ function normalizzaPesi(data) {
 
 async function getAllocazionePaesi(ticker) {
     const chiave = dbRadice.configurazioneTarget.fmpApiKey;
-    if (!chiave) throw new Error('Manca la chiave API FMP: inseriscila nel campo dedicato e salva.');
+    // Messaggio in italiano semplice, usato anche da sincronizzaTuttiETF per raggruppare gli ETF.
+    if (!chiave) throw new Error('manca la chiave API FMP (i pesi per paese non sono scaricabili senza)');
 
     const candidati = [ticker];
     if (ticker.includes('.')) {
@@ -612,7 +617,12 @@ async function getAllocazionePaesi(ticker) {
     for (const s of [...new Set(candidati)]) {
         try {
             const resp = await fetch(`https://financialmodelingprep.com/api/v3/etf-country-distribution/${encodeURIComponent(s)}?apikey=${encodeURIComponent(chiave)}`);
-            if (!resp.ok) { ultimoErrore = new Error(`FMP errore ${resp.status} per ${s}`); continue; }
+            if (!resp.ok) {
+                ultimoErrore = resp.status === 401 || resp.status === 403
+                    ? new Error(`la chiave API FMP è rifiutata (errore ${resp.status})`)
+                    : new Error(`FMP non ha risposto correttamente (errore ${resp.status})`);
+                continue;
+            }
             const data = await resp.json();
             if (Array.isArray(data) && data.length > 0) return normalizzaPesi(data);
             ultimoErrore = new Error('Nessun dato country per ' + s);
@@ -624,11 +634,16 @@ async function getAllocazionePaesi(ticker) {
 async function sincronizzaTuttiETF() {
     const etfs = (dbRadice.configurazioneTarget.etfs || []).filter(e => e.isin);
     if (etfs.length === 0) { alert("Nessun ETF con ISIN da sincronizzare."); return; }
+
+    const tasto = confermaSincronizzazione();
+
     let ok = 0;
-    const falliti = [];
+    const senzaTicker = [];
+    const chiaveRifiutata = [];
+    const erroriApi = [];
     for (const etf of etfs) {
         try {
-            // Priorità al ticker inserito manualmente: non va risolto dall'ISIN.
+            // Priorità al ticker già noto (impostato dal popup): non va risolto di nuovo.
             let ticker = etf.ticker;
             if (!ticker) ticker = await risolviTickerDaIsin(etf.isin);
             etf.ticker = ticker;
@@ -637,17 +652,45 @@ async function sincronizzaTuttiETF() {
             etf.geoData = new Date().toISOString().slice(0, 10);
             ok++;
         } catch (e) {
-            falliti.push(etf.nome);
+            const msg = (e && e.message) ? e.message : 'errore sconosciuto';
+            if (/ticker non trovato/i.test(msg)) senzaTicker.push(etf.nome);
+            else if (/chiave API FMP/i.test(msg)) chiaveRifiutata.push(etf.nome);
+            else erroriApi.push(etf.nome);
         }
         salvaNelLocalStorage();
     }
+    if (ok > 0) dbRadice.configurazioneTarget.ultimaSincroEtf = new Date().toISOString();
     renderizzaTutto();
-    let msg = `Sincronizzazione completata: ${ok} riusciti, ${falliti.length} falliti.`;
-    if (falliti.length > 0) {
-        msg += '\n\nFalliti: ' + falliti.join(', ') +
-            '\nSuggerimento: per questi ETF inserisci il ticker nel campo "Ticker (per API, se noto)" (es. VWCE), salva e riprova.';
+
+    // Messaggio finale: niente suggerimenti tecnici, solo cosa è successo e cosa fare.
+    let msg = `Sincronizzazione completata: ${ok} su ${etfs.length} ETF aggiornati.`;
+    if (senzaTicker.length > 0) {
+        msg += `\n\nTicker non riconosciuto automaticamente per: ${senzaTicker.join(', ')}.` +
+            '\nVerifica che l\'ISIN sia corretto e riprova più tardi; puoi anche impostarlo a mano aprendo il dettaglio 🌐 dell\'ETF.';
+    }
+    if (chiaveRifiutata.length > 0) {
+        const senzaChiaveSalvata = !dbRadice.configurazioneTarget.fmpApiKey;
+        msg += senzaChiaveSalvata
+            ? `\n\nPer ${chiaveRifiutata.join(', ')} manca la chiave API FMP: inseriscila nel campo dedicato e riprova.`
+            : `\n\nI pesi per paese di ${chiaveRifiutata.join(', ')} non si scaricano: la chiave API FMP salvata non è valida o il tuo piano non include questo dato. Controlla la chiave sul sito FMP.`;
+    }
+    if (erroriApi.length > 0) {
+        msg += `\n\nI dati geografici non sono disponibili per: ${erroriApi.join(', ')} (il servizio esterno ha rifiutato la richiesta).`;
+    }
+    if (tasto && ok < etfs.length) {
+        msg += `\n\nRestano ${etfs.length - ok} ETF da aggiornare: ${tasto}.`;
     }
     alert(msg);
+}
+
+// Se l'ultima sincronizzazione è recente avvisa che i dati possono essere già validi: le API
+// gratuite hanno un numero limitato di richieste al giorno e i proxy pubblici si "scaricano".
+function confermaSincronizzazione() {
+    const dataUltima = dbRadice.configurazioneTarget.ultimaSincroEtf;
+    if (!dataUltima) return null;
+    const giorni = Math.floor((Date.now() - new Date(dataUltima).getTime()) / 86400000);
+    if (isNaN(giorni) || giorni > 7) return null;
+    return `ultima sincronizzazione ${giorni === 0 ? 'oggi' : giorni + ' giorni fa'}`;
 }
 
 
@@ -686,7 +729,10 @@ function renderizzaPopupETF() {
             tbody.appendChild(tr);
         });
     } else {
-        if (status) status.innerText = 'Non ancora sincronizzato. Clicca su "Sincronizza ora" per scaricare i pesi per paese (richiede connessione e chiave API FMP salvata).';
+        const mancaChiave = !dbRadice.configurazioneTarget.fmpApiKey;
+        if (status) status.innerText = mancaChiave
+            ? 'Manca la chiave API FMP: inseriscila nel riquadro "Chiave API FMP" e salvala, poi clicca "Sincronizza ora" per scaricare i pesi per paese.'
+            : 'Non ancora sincronizzato. Clicca su "Sincronizza ora" per scaricare i pesi per paese.';
     }
 
     renderizzaPiePopup(etf);
@@ -717,21 +763,43 @@ async function sincronizzaETFDaPopup() {
     const pulsanti = document.querySelectorAll('#etf-modal button');
     const testiOriginali = [];
     pulsanti.forEach(b => { testiOriginali.push(b.innerText); b.disabled = true; b.innerText = '⏳ Sincronizzazione...'; });
+    const box = document.getElementById('etf-modal-ticker-box');
+    const inputTicker = document.getElementById('etf-modal-ticker');
+    if (box) box.style.display = 'none';
+
     try {
         const etf = (dbRadice.configurazioneTarget.etfs || []).find(e => e.id === popupEtfId);
         if (!etf) throw new Error('ETF non trovato.');
-        // Priorità al ticker manuale già salvato (es. VWCE); la risoluzione da ISIN è il fallback.
-        let ticker = etf.ticker;
-        if (!ticker) ticker = await risolviTickerDaIsin(etf.isin);
+
+        // Ticker: quello già noto, poi l'eventuale inserimento manuale, poi la ricerca da ISIN.
+        let ticker = (inputTicker && inputTicker.value.trim()) || etf.ticker;
+        if (!ticker) {
+            try {
+                ticker = await risolviTickerDaIsin(etf.isin);
+            } catch (eRisoluzione) {
+                // Nessun ticker: si apre il campo manuale con un messaggio comprensibile.
+                if (box) { box.style.display = 'block'; if (inputTicker) inputTicker.focus(); }
+                const status = document.getElementById('etf-modal-status');
+                if (status) status.innerText = 'Non riesco a ricavare automaticamente il ticker da questo ISIN. ' +
+                    'Se lo conosci, scrivilo nel campo qui sotto e premi di nuovo "Sincronizza ora".';
+                return;
+            }
+        }
+
         etf.ticker = ticker;
         const pesi = await getAllocazionePaesi(ticker);
         etf.geo = pesi;
         etf.geoData = new Date().toISOString().slice(0, 10);
+        dbRadice.configurazioneTarget.ultimaSincroEtf = new Date().toISOString();
+        if (box) box.style.display = 'none';
+        if (inputTicker) inputTicker.value = '';
         salvaNelLocalStorage();
         renderizzaPopupETF();
         renderizzaRebalancingTab();
     } catch (e) {
-        alert('Sincronizzazione fallita: ' + e.message);
+        const status = document.getElementById('etf-modal-status');
+        const dettaglio = (e && e.message) ? e.message : 'errore sconosciuto';
+        if (status) status.innerText = 'Sincronizzazione non riuscita: ' + dettaglio;
     } finally {
         pulsanti.forEach((b, i) => { b.disabled = false; b.innerText = testiOriginali[i]; });
     }

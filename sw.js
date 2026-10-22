@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.6.12';
+const CACHE_NAME = 'pfd-cache-v1.6.14';
 
 // 2. Risorse statiche + librerie CDN per il supporto offline completo
 const urlsToCache = [
@@ -45,10 +45,24 @@ self.addEventListener('activate', event => {
 });
 
 // Intercettazione delle richieste offline
-// Strategia cache-first con runtime-caching: le richieste GET riuscite
-// (stesso-origine e CDN) vengono salvate in cache per il futuro uso offline.
+// Strategia cache-first con runtime-caching: SOLO le risorse dell'app (stesso-origine e
+// CDN in whitelist) vengono salvate in cache. Le chiamate alle API esterne (Yahoo,
+// proxy CORS, FMP) NON sono intercettate: passano dirette al browser, che invia
+// l'header Origin che i proxy richiedono, e non finiscono mai in cache.
+const hostInCache = [
+  self.location.host,                 // file dell'app su GitHub Pages
+  'cdn.jsdelivr.net',                 // Chart.js
+  'query1.finance.yahoo.com',         // dati quotazioni ETF
+  'financialmodelingprep.com',        // allocazione geografica FMP
+  'www.financialmodelingprep.com'
+];
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+
+  let url;
+  try { url = new URL(event.request.url); } catch (e) { return; }
+  if (!hostInCache.includes(url.hostname)) return; // proxy CORS e API esterne: nessun intervento
 
   event.respondWith(
     caches.match(event.request)
@@ -56,10 +70,10 @@ self.addEventListener('fetch', event => {
         return response || fetch(event.request).then(resp => {
           if (resp && resp.ok) {
             const clone = resp.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone)).catch(() => {});
           }
           return resp;
-        });
+        }).catch(() => caches.match('./index.html'));
       })
   );
 });
