@@ -495,10 +495,11 @@ function salvaApiKeyFmp() {
     alert('Chiave API FMP salvata localmente (mai inviata altrove).');
 }
 
-// ISIN → ticker. Yahoo blocca le richieste cross-origin dal browser (non invia header CORS
-// su origine diversa da finance.yahoo.com), quindi si tenta: 1) Yahoo diretto, 2) Yahoo via
-// proxy CORS AllOrigins (gratis, Access-Control-Allow-Origin: *), 3) ricerca FMP solo se
-// esiste una chiave API salvata.
+// ISIN → ticker. Nel browser NON si può chiamare Yahoo Finance direttamente (a origine diversa
+// da finance.yahoo.com Yahoo NON invia Access-Control-Allow-Origin → il browser blocca), quindi
+// la ricerca viene instradata attraverso una lista di proxy CORS pubblici e gratuiti, provati
+// in rotazione con timeout: appena uno restituisce un simbolo ci si ferma. Ultimo fallback:
+// /search di FMP (solo se è salvata una chiave API).
 async function risolviTickerDaIsin(isin) {
     isin = String(isin || '').trim().toUpperCase();
     if (!isin) throw new Error("ISIN mancante.");
@@ -512,48 +513,73 @@ async function risolviTickerDaIsin(isin) {
 
     const yahooUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(isin)}&quotesCount=5&newsCount=0`;
 
-    // 1) Yahoo diretto: dal browser fallisce quasi sempre per CORS, si prosegue col proxy.
-    try {
-        const resp = await fetch(yahooUrl, { headers: { 'Accept': 'application/json' } });
-        if (resp.ok) {
-            const symbol = estraiSymbol(await resp.json());
-            if (symbol) return symbol;
-        }
-    } catch (e) { /* CORS o rete: prosegue col proxy */ }
+    // Proxy che passano il JSON di Yahoo così com'è.
+    const rawProxies = [
+        (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+        (u) => `https://api.cors.lol/?url=${encodeURIComponent(u)}`,
+        (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`
+    ];
+    // Proxy che restituiscono un wrapper { contents: "<json di Yahoo>" }. Richiedono l'header
+    // Origin, che il browser invia automaticamente alle richieste cross-origin.
+    const wrapperProxies = [
+        (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+        (u) => `https://whateverorigin.org/get?url=${encodeURIComponent(u)}`
+    ];
 
-    // 2) Yahoo via AllOrigins (raw): Access-Control-Allow-Origin: * → funziona dal browser
-    //    senza chiave API. Yahoo a volte risponde con rate-limit lato proxy (quotes vuoto),
-    //    quindi si ritenta un paio di volte prima di passare a FMP.
-    const viaProxy = async (url, tentativi = 3) => {
-        for (let i = 0; i < tentativi; i++) {
-            try {
-                const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-                if (!resp.ok) continue;
-                const symbol = estraiSymbol(JSON.parse(await resp.text()));
-                if (symbol) return symbol;
-            } catch (e) { /* il proxy può rispondere con HTML o dati vuoti: ritenta */ }
-            await new Promise(res => setTimeout(res, 1200));
-        }
-        return null;
+    const fetchConTimeout = async (url, ms) => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), ms);
+        try { return await fetch(url, { signal: ctrl.signal }); }
+        finally { clearTimeout(t); }
     };
-    const symbolProxy = await viaProxy(yahooUrl);
-    if (symbolProxy) return symbolProxy;
+    const tenta = async (fn) => {
+        try { return await fn(); } catch (e) { return null; }
+    };
+    const bodyJson = async (resp) => {
+        if (!resp || !resp.ok) return null;
+        const text = await tenta(() => resp.text());
+        if (!text || !String(text).trim().startsWith('{')) return null;
+        return JSON.parse(text);
+    };
+    const normalizza = async (resp) => {
+        const data = await bodyJson(resp);
+        return data ? estraiSymbol(data) : null;
+    };
+    const normalizzaWrapper = async (resp) => {
+        const wrapper = await bodyJson(resp);
+        return (wrapper && wrapper.contents) ? estraiSymbol(JSON.parse(wrapper.contents)) : null;
+    };
 
-    // 3) FMP: solo se è salvata una chiave. Nota: il /search di FMP cerca per simbolo/nome,
-    //    non per ISIN, quindi spesso non restituisce nulla: è un ultimo fallback.
-    const chiave = dbRadice.configurazioneTarget.fmpApiKey;
-    if (chiave) {
-        try {
-            const resp = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(isin)}&limit=5&apikey=${encodeURIComponent(chiave)}`);
-            if (resp.ok) {
-                const data = await resp.json();
-                const simbolo = Array.isArray(data) && data[0] && data[0].symbol ? data[0].symbol : null;
-                if (simbolo) return simbolo;
-            }
-        } catch (e) { /* nessun risultato */ }
+    // Rotazione sui proxy "raw", poi sui "wrapper", con limite di tempo complessivo
+    // per non rallentare troppo la sincronizzazione di più ETF.
+    const MAX_MS = 20000;
+    const inizio = Date.now();
+    for (const build of rawProxies) {
+        if (Date.now() - inizio > MAX_MS) break;
+        const symbol = await tenta(async () => normalizza(await fetchConTimeout(build(yahooUrl), 3000)));
+        if (symbol) return symbol;
+    }
+    for (const build of wrapperProxies) {
+        if (Date.now() - inizio > MAX_MS) break;
+        const symbol = await tenta(async () => normalizzaWrapper(await fetchConTimeout(build(yahooUrl), 3000)));
+        if (symbol) return symbol;
     }
 
-    throw new Error("Impossibile risolvere il ticker dall'ISIN. Inserisci il ticker manualmente nel campo dedicato (es. VWCE).");
+    // Fallback FMP: solo se è salvata una chiave. Nota: il /search di FMP cerca per
+    // simbolo/nome, non per ISIN, quindi spesso non restituisce nulla: è un ultimo tentativo.
+    const chiave = dbRadice.configurazioneTarget.fmpApiKey;
+    if (chiave) {
+        const symbol = await tenta(async () => {
+            const resp = await fetch(`https://financialmodelingprep.com/api/v3/search?query=${encodeURIComponent(isin)}&limit=5&apikey=${encodeURIComponent(chiave)}`);
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            return (Array.isArray(data) && data[0] && data[0].symbol) ? data[0].symbol : null;
+        });
+        if (symbol) return symbol;
+    }
+
+    throw new Error("Impossibile risolvere il ticker dall'ISIN tramite i servizi gratuiti (temporaneamente instabili). Inserisci il ticker manualmente nel campo dedicato (es. EXUS.L) e salva l'ETF prima di sincronizzare.");
 }
 
 function normalizzaPesi(data) {
