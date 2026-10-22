@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.14';
+const VERSIONE_APP = '1.6.20';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -10,7 +10,6 @@ let dbRadice = {
         investimentiNomi: [],
         debitiNomi: [],
         etfs: [],
-        fmpApiKey: '',
         mesiEmergenza: 6,
         sogliaExtraLiquidita: 5000,
         sogliaScostamentoEtf: 10
@@ -66,9 +65,6 @@ function normalizzaConfigurazione() {
     (dbRadice.configurazioneTarget.investimentiNomi || []).forEach(item => {
         if (item && item.importo === undefined) item.importo = 0;
     });
-
-    // Chiave API FMP per l'allocazione geografica (opzionale, salvata solo in locale)
-    if (typeof dbRadice.configurazioneTarget.fmpApiKey !== 'string') dbRadice.configurazioneTarget.fmpApiKey = '';
 
     // Soglia di scostamento % (unica per tutti gli ETF) per i warning del Tab 4
     if (typeof dbRadice.configurazioneTarget.sogliaScostamentoEtf !== 'number' || isNaN(dbRadice.configurazioneTarget.sogliaScostamentoEtf)) dbRadice.configurazioneTarget.sogliaScostamentoEtf = 10;

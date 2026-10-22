@@ -323,10 +323,8 @@
                     </div>
                 </div>
                 <div>
-                    <label>Chiave API FMP (gratuita — per allocazione geografica)</label>
-                    <input type="text" id="fmp-api-key" placeholder="es. xxxxxxxxxx" autocomplete="off">
-                    <button class="btn-secondary w-auto" onclick="salvaApiKeyFmp()">Salva chiave API</button>
-                    <p class="text-muted" style="font-size:0.75rem;">Serve solo per sincronizzare i pesi per paese (etf-country-distribution). Crea una chiave gratuita su financialmodelingprep.com e salvala qui: resta solo sul tuo dispositivo. Senza sincronizzazione i dati geografici restano vuoti.</p>
+                    <p class="text-muted" style="font-size:0.8rem; margin-top:0;">La composizione geografica di ogni ETF viene letta <strong>gratuitamente</strong> dal profilo pubblico su justETF (nessuna chiave API, nessun simbolo di Borsa da inserire): basta l'ISIN. Clicca <strong>🔄 Sincronizza tutti</strong> per aggiornare i pesi per paese di tutti gli ETF in una volta.</p>
+                    <p class="text-muted" style="font-size:0.75rem;">Nota: justETF mostra i primi quattro paesi di ciascun ETF più una voce "Other" che accorpa tutti gli altri, quindi il grafico geografico avrà cinque voci per ETF.</p>
                 </div>
             </div>
         </div>
@@ -405,13 +403,6 @@
                     <button class="btn-secondary w-auto" onclick="chiudiPopupETF()">✕ Chiudi</button>
                 </div>
                 <p class="text-muted" id="etf-modal-status" style="font-size:0.85rem;"></p>
-                <!-- Compare solo se la risoluzione automatica del ticker fallisce: è l'unico
-                     punto in cui si può indicarlo a mano, per non appesantire il form principale. -->
-                <div id="etf-modal-ticker-box" style="display:none; margin-bottom:10px;">
-                    <label style="font-size:0.85rem;">Ticker (solo se la ricerca automatica non lo trova)</label>
-                    <input type="text" id="etf-modal-ticker" placeholder="es. EXUS.L" autocomplete="off">
-                    <p class="text-muted" style="font-size:0.75rem; margin-top:-4px;">Simbolo di Borsa dell'ETF, ricavabile dal sito dell'emittente. Viene usato solo per scaricare i pesi per paese.</p>
-                </div>
                 <div class="grid-2">
                     <div>
                         <table id="etf-modal-table">

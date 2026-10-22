@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.6.14';
+const CACHE_NAME = 'pfd-cache-v1.6.20';
 
 // 2. Risorse statiche + librerie CDN per il supporto offline completo
 const urlsToCache = [
@@ -46,15 +46,11 @@ self.addEventListener('activate', event => {
 
 // Intercettazione delle richieste offline
 // Strategia cache-first con runtime-caching: SOLO le risorse dell'app (stesso-origine e
-// CDN in whitelist) vengono salvate in cache. Le chiamate alle API esterne (Yahoo,
-// proxy CORS, FMP) NON sono intercettate: passano dirette al browser, che invia
-// l'header Origin che i proxy richiedono, e non finiscono mai in cache.
+// CDN in whitelist) vengono salvate in cache. Le chiamate esterne (pagina justETF letta
+// tramite r.jina.ai) NON sono intercettate: passano dirette al browser e non finiscono mai in cache.
 const hostInCache = [
   self.location.host,                 // file dell'app su GitHub Pages
-  'cdn.jsdelivr.net',                 // Chart.js
-  'query1.finance.yahoo.com',         // dati quotazioni ETF
-  'financialmodelingprep.com',        // allocazione geografica FMP
-  'www.financialmodelingprep.com'
+  'cdn.jsdelivr.net'                  // Chart.js
 ];
 
 self.addEventListener('fetch', event => {
