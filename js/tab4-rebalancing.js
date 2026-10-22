@@ -8,6 +8,8 @@
 // senza fallback benchmark: se non sincronizzata i dati restano vuoti.
 
 let chartGeoBreakdownInstance = null;
+let chartGeoCountriesInstance = null;
+let chartEtfGeoTortaInstance = null;
 let chartPerformanceAssetsInstance = null;
 let popupChartInstance = null;
 let popupEtfId = null;
@@ -376,12 +378,70 @@ function renderizzaPerformanceETF() {
         if (precedente && dati[precedente]) select.value = precedente;
     }
     renderizzaGraficoPerformanceETF(select ? select.value : null, dati);
+    renderizzaGraficoTortaGeoEtf(select ? select.value : null);
 }
 
 function selezionaEtfPerformance() {
     const select = document.getElementById('select-etf-performance');
     if (!select) return;
-    renderizzaGraficoPerformanceETF(select.value, datiPerformancePerETF());
+    const dati = datiPerformancePerETF();
+    renderizzaGraficoPerformanceETF(select.value, dati);
+    renderizzaGraficoTortaGeoEtf(select.value);
+}
+
+// Torta dell'allocazione geografica dell'ETF scelto nella tendina "ETF da visualizzare".
+// Riusa lo stesso dato sincronizzato (etf.geo) del grafico d'insieme: nessuna chiamata extra.
+function renderizzaGraficoTortaGeoEtf(etfId) {
+    const canvas = document.getElementById('chartEtfGeoPie');
+    if (!canvas) return;
+    if (chartEtfGeoTortaInstance) chartEtfGeoTortaInstance.destroy();
+    const ctx = canvas.getContext('2d');
+
+    const etf = (dbRadice.configurazioneTarget.etfs || []).find(e => String(e.id) === String(etfId));
+    const geo = (etf && etf.geo) ? etf.geo : {};
+    const voci = Object.entries(geo).sort((a, b) => b[1] - a[1]);
+    const etichette = voci.map(v => v[0]);
+    const valori = voci.map(v => v[1]);
+
+    // Se l'ETF non è ancora stato sincronizzato lo si dice esplicitamente, senza dati fittizi.
+    if (etichette.length === 0) {
+        chartEtfGeoTortaInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [etf ? 'Allocazione non ancora scaricata' : 'Nessun ETF selezionato'],
+                datasets: [{ data: [1], backgroundColor: ['#334155'] }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }
+            }
+        });
+        return;
+    }
+
+    chartEtfGeoTortaInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: etichette,
+            datasets: [{
+                data: valori,
+                backgroundColor: COLORI_GEO,
+                borderColor: '#1e293b',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#f8fafc', boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: { label: (c) => `${c.label}: ${Number(c.parsed).toFixed(1)} %` }
+                }
+            }
+        }
+    });
 }
 
 function renderizzaGraficoPerformanceETF(etfId, dati) {
@@ -449,36 +509,171 @@ function renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget) 
     });
 }
 
+// ---------- Macro-regioni geografiche ----------
+// justETF restituisce i singoli paesi (e una voce "Other" che accorpa il resto). Per la vista
+// d'insieme i paesi vengono raggruppati in macro-aree confrontabili tra portafogli diversi.
+const MACRO_REGIONI = {
+    'Nord America': ['United States', 'United States of America', 'USA', 'Canada'],
+    'Europa': ['Germany', 'France', 'Netherlands', 'Switzerland', 'Spain', 'Italy', 'Sweden',
+        'Denmark', 'Norway', 'Finland', 'Belgium', 'Austria', 'Ireland', 'Portugal', 'Poland',
+        'Greece', 'Luxembourg', 'Czech Republic', 'Hungary', 'Romania', 'Estonia', 'Latvia',
+        'Lithuania', 'Slovenia', 'Croatia', 'Iceland', 'Turkey', 'Malta', 'Cyprus', 'Slovakia',
+        'Bulgaria', 'Russia'],
+    'Regno Unito': ['United Kingdom', 'UK', 'Great Britain', 'Jersey', 'Guernsey', 'Isle of Man'],
+    'Asia': ['Japan', 'South Korea', 'Korea', 'Taiwan', 'India', 'Indonesia', 'Thailand',
+        'Malaysia', 'Singapore', 'Philippines', 'Vietnam', 'Hong Kong', 'Pakistan',
+        'Bangladesh', 'Sri Lanka', 'Macao', 'Macau', 'Cambodia', 'Mongolia', 'Kazakhstan'],
+    'Cina': ['China', 'Chinese mainland', 'PRC'],
+    'Sud America': ['Brazil', 'Chile', 'Colombia', 'Peru', 'Argentina', 'Mexico', 'Uruguay',
+        'Ecuador', 'Venezuela', 'Panama', 'Costa Rica', 'Cayman Islands', 'Bermuda',
+        'British Virgin Islands', 'Bahamas', 'Dominican Republic', 'Jamaica', 'Guatemala',
+        'El Salvador', 'Honduras', 'Paraguay', 'Bolivia', 'Trinidad and Tobago'],
+    'Oceania': ['Australia', 'New Zealand'],
+    'Africa': ['South Africa', 'Egypt', 'Morocco', 'Nigeria', 'Kenya', 'Ghana', 'Tunisia',
+        'Mauritius', 'Zambia', 'Tanzania', 'Uganda', 'Ivory Coast', 'Senegal', 'Botswana',
+        'Namibia', 'Zimbabwe', 'Angola', 'Mozambique', 'Ethiopia', 'Algeria'],
+    'Medio Oriente': ['Saudi Arabia', 'United Arab Emirates', 'Israel', 'Qatar', 'Kuwait',
+        'Bahrain', 'Oman', 'Jordan', 'Lebanon', 'Iraq', 'Iran']
+};
+
+// Paese/voce → macro-regione. Restituisce null per "Other" e per voci non mappate.
+function macroRegione(paese) {
+    const nome = String(paese || '').trim();
+    if (!nome) return null;
+    if (/^(other|others|altro|altri)$/i.test(nome)) return null;
+    for (const [regione, paesi] of Object.entries(MACRO_REGIONI)) {
+        if (paesi.some(p => p.toLowerCase() === nome.toLowerCase())) return regione;
+    }
+    return null;
+}
+
+// Aggrega { paese: % } in { macro-regione: % }.
+// La voce "Other" (paesi oltre i primi 4 mostrati da justETF) viene ridistribuita in
+// proporzione alle regioni già note: le somme restano 100% e il grafico non "perde" peso.
+// Se "Other" è il 100% del dato (nessun paese noto) viene mostrato come voce a sé.
+function aggregaMacroRegioni(geo) {
+    const perRegione = {};
+    let altroPeso = 0;
+    let altroNonMappato = 0;
+    Object.entries(geo || {}).forEach(([paese, peso]) => {
+        const regione = macroRegione(paese);
+        if (regione) perRegione[regione] = (perRegione[regione] || 0) + peso;
+        else if (/^(other|others|altro|altri)$/i.test(paese.trim())) altroPeso += peso;
+        else altroNonMappato += peso;
+    });
+
+    const noto = Object.values(perRegione).reduce((a, v) => a + v, 0);
+    const daRidistribuire = altroPeso + altroNonMappato;
+
+    if (noto > 0) {
+        // Ridistribuzione proporzionale dei pesi non attribuiti (arrotondata a 1 decimale)
+        Object.keys(perRegione).forEach(r => {
+            perRegione[r] = perRegione[r] + (perRegione[r] / noto) * daRidistribuire;
+            perRegione[r] = Math.round(perRegione[r] * 10) / 10;
+        });
+    } else if (daRidistribuire > 0) {
+        perRegione['Altro / non specificato'] = Math.round(daRidistribuire * 10) / 10;
+    }
+
+    // Ordina dalla macro-regione più esposta alla meno esposta
+    return Object.fromEntries(Object.entries(perRegione).sort((a, b) => b[1] - a[1]));
+}
+
+
+// Palette condivisa dai grafici geografici (stessa regione = stesso colore ovunque).
+const COLORI_GEO = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6',
+    '#f97316', '#06b6d4', '#ef4444', '#84cc16', '#a855f7', '#eab308'];
+
 // Esposizione geografica TOTALE ponderata sui pesi target (da quote mensili).
-// Se nessun ETF è sincronizzato il grafico resta vuoto (nessun dato fittizio).
+// Mostra le MACRO-REGIONI (Nord America, Europa, Asia, ...) così il portafoglio è leggibile
+// a colpo d'occhio; l'aggiornamento ai singoli paesi è nel grafico affiancato.
 function renderizzaGraficoGeografico(attivi) {
     const ctx = document.getElementById('chartGeoBreakdown').getContext('2d');
     if (chartGeoBreakdownInstance) chartGeoBreakdownInstance.destroy();
 
+    // 1) Esposizione al singolo paese, ponderata sul peso target di ogni ETF
     const pesiTarget = pesiTargetETF(attivi);
-    const aggregato = {};
+    const perPaese = {};
     attivi.forEach(e => {
         if (!e.geo || Object.keys(e.geo).length === 0) return;
         const quota = (pesiTarget[e.id] || 0) / 100;
         Object.entries(e.geo).forEach(([paese, peso]) => {
-            aggregato[paese] = (aggregato[paese] || 0) + quota * peso;
+            perPaese[paese] = (perPaese[paese] || 0) + quota * peso;
         });
     });
 
-    const chiavi = Object.keys(aggregato);
+    // 2) Aggregazione in macro-regioni
+    const macro = aggregaMacroRegioni(perPaese);
+    const chiaviMacro = Object.keys(macro);
+
     chartGeoBreakdownInstance = new Chart(ctx, {
-        type: 'pie',
+        type: 'doughnut',
         data: {
-            labels: chiavi.length ? chiavi : ['Nessun dato — sincronizza gli ETF online'],
+            labels: chiaviMacro.length ? chiaviMacro : ['Nessun dato — sincronizza gli ETF'],
             datasets: [{
-                data: chiavi.length ? Object.values(aggregato) : [1],
-                backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4']
+                data: chiaviMacro.length ? Object.values(macro) : [1],
+                backgroundColor: chiaviMacro.length ? COLORI_GEO : ['#334155'],
+                borderColor: '#1e293b',
+                borderWidth: 1
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { color: '#f8fafc' } } }
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#f8fafc' } },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => chiaviMacro.length ? `${c.label}: ${Number(c.parsed).toFixed(1)} %` : c.label
+                    }
+                }
+            }
+        }
+    });
+
+    renderizzaGraficoGeoPerPaese(perPaese);
+}
+
+// Dettaglio per singolo paese, affiancato alle macro-regioni (stessa ponderazione).
+// Le voci sotto lo 0,5% confluiscono in "Other" per non affollare la legenda.
+function renderizzaGraficoGeoPerPaese(perPaese) {
+    const canvas = document.getElementById('chartGeoCountries');
+    if (!canvas) return;
+    if (chartGeoCountriesInstance) chartGeoCountriesInstance.destroy();
+    const ctx = canvas.getContext('2d');
+
+    const voci = Object.entries(perPaese || {}).sort((a, b) => b[1] - a[1]);
+    const etichette = [];
+    const valori = [];
+    let altri = 0;
+    voci.forEach(([paese, peso]) => {
+        if (peso >= 0.5) { etichette.push(paese); valori.push(peso); }
+        else altri += peso;
+    });
+    if (altri > 0) { etichette.push('Altri paesi'); valori.push(Math.round(altri * 10) / 10); }
+
+    chartGeoCountriesInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: etichette.length ? etichette : ['Nessun dato — sincronizza gli ETF'],
+            datasets: [{
+                data: valori.length ? valori : [1],
+                backgroundColor: etichette.length ? COLORI_GEO : ['#334155'],
+                borderColor: '#1e293b',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#f8fafc', boxWidth: 12, font: { size: 10 } } },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => etichette.length ? `${c.label}: ${Number(c.parsed).toFixed(1)} %` : c.label
+                    }
+                }
+            }
         }
     });
 }

@@ -361,10 +361,17 @@
 
         <div class="grid-2">
             <div class="card">
-                <h2>Esposizione Geografica Totale Ponderata</h2>
+                <h2>Esposizione Geografica Totale — Macro-Regioni</h2>
                 <div class="chart-container"><canvas id="chartGeoBreakdown"></canvas></div>
-                <p class="text-muted" style="font-size:0.8rem;">Ponderata sui pesi target (da quote mensili). Se gli ETF non sono sincronizzati, il grafico resta vuoto (nessun dato fittizio).</p>
+                <p class="text-muted" style="font-size:0.8rem;">Ponderata sui pesi target (da quote mensili). La voce "Other" restituita da justETF (paesi oltre i primi quattro) è ridistribuita in proporzione alle regioni note. Se gli ETF non sono sincronizzati, il grafico resta vuoto (nessun dato fittizio).</p>
             </div>
+            <div class="card">
+                <h2>Esposizione Geografica Totale — Dettaglio per Paese</h2>
+                <div class="chart-container"><canvas id="chartGeoCountries"></canvas></div>
+                <p class="text-muted" style="font-size:0.8rem;">Stessa ponderazione, con i singoli paesi. Le quote sotto lo 0,5% sono accorpate in "Altri paesi".</p>
+            </div>
+        </div>
+        <div class="grid-2">
             <div class="card">
                 <h2>Peso Target vs Attuale per Asset (%)</h2>
                 <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
@@ -387,12 +394,14 @@
                     <tbody id="table-performance-etf-body"></tbody>
                 </table>
             </div>
-            <div class="grid-2 mt-15">
+            <div class="grid-3 mt-15">
                 <div>
                     <label>ETF da visualizzare</label>
                     <select id="select-etf-performance" onchange="selezionaEtfPerformance()"></select>
+                    <p class="text-muted" style="font-size:0.75rem; margin-top:8px;">La selezione aggiorna entrambi i grafici: andamento nel tempo e allocazione geografica dell'ETF scelto.</p>
                 </div>
                 <div class="chart-container"><canvas id="chartPerformanceEtf"></canvas></div>
+                <div class="chart-container"><canvas id="chartEtfGeoPie"></canvas></div>
             </div>
         </div>
         <!-- MODAL: allocazione geografica del singolo ETF -->
