@@ -213,28 +213,19 @@ function renderizzaRebalancingTab() {
     });
 
     // ---------- Riga riepilogativa in coda all'elenco asset ----------
-    // Patrimonio = somma dei valori correnti degli ETF attivi; versato = capitale
-    // complessivamente versato (cumulato dalla pagina 5); rendimento da patrimonio/versato.
+    // Patrimonio = somma dei valori correnti degli ETF attivi. La cella dello scostamento
+    // resta vuota: lo scostamento aggregato non è significativo (è già mostrato per singolo ETF).
     const totaleQuotaMensile = attivi.reduce((a, e) => a + (e.quotaMensile || 0), 0);
-    let totaleVersato = 0;
-    attivi.forEach(e => {
-        const serie = versamentiCumulatiETF(e.id);
-        if (serie.length > 0) totaleVersato += serie[serie.length - 1].versato;
-    });
-    const rendimentoEuro = totaleVersato > 0 ? totaleInvestito - totaleVersato : null;
-    const rendimentoPct = (rendimentoEuro !== null && totaleVersato > 0) ? ((totaleInvestito / totaleVersato) - 1) * 100 : null;
 
     const trTot = document.createElement('tr');
     trTot.className = 'tr-totale';
     trTot.innerHTML = `
-        <td><strong>TOTALE ETF ATTIVI</strong><br><small class="text-muted">patrimonio e versato cumulati dagli ETF attivi</small></td>
+        <td><strong>TOTALE ETF ATTIVI</strong><br><small class="text-muted">patrimonio cumulato dagli ETF attivi</small></td>
         <td><strong>${totaleQuotaMensile.toLocaleString()} €</strong><br><small class="text-muted">al mese</small></td>
         <td>100 %</td>
         <td><strong>${totaleInvestito.toLocaleString()} €</strong></td>
         <td>100 %</td>
-        <td>${rendimentoPct !== null
-            ? `<strong style="color:${rendimentoEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${rendimentoEuro >= 0 ? '+' : ''}${rendimentoEuro.toLocaleString()} €</strong>&nbsp;<span style="color:${rendimentoEuro >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};font-weight:600;">(${rendimentoPct >= 0 ? '+' : ''}${rendimentoPct.toFixed(2)}%)</span><br>`
-            : '<span class="text-muted">—</span>'}</td>
+        <td></td>
         <td></td>
     `;
     tbody.appendChild(trTot);
