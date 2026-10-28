@@ -392,7 +392,7 @@
         </div>
         <div class="card">
             <h2>Performance ETF — Rendimento al netto del PAC</h2>
-            <p class="text-muted" style="font-size:0.8rem;">Il rendimento è la differenza tra valore di mercato e capitale complessivamente versato: così si scorpora l'effetto del piano di accumulo. I versamenti si registrano nella pagina 5 (campo "Versato") a ogni misurazione.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Il rendimento è la differenza tra valore di mercato e capitale complessivamente versato: così si scorpora l'effetto del piano di accumulo. Il capitale versato è il campo "Versato" della pagina 5, che contiene il <strong>totale</strong> versato nell'ETF (nessuna somma tra misurazioni).</p>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
@@ -450,10 +450,10 @@
                 <h2>Inserimento Misurazione ETF</h2>
                 <button class="btn-secondary w-auto" onclick="copiaUltimaMisurazioneETF()">📋 Copia da ultima misurazione</button>
             </div>
-            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. Le misurazioni ETF vivono in un archivio dedicato, <strong>separato</strong> dalle pagine 1-2-3 (che restano legate solo a saldi banche/investimenti/debiti): puoi misurare gli ETF anche in date diverse da quelle di pagina 1 senza effetti sulle altre pagine. Monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente da questa sezione.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. Le misurazioni ETF vivono in un archivio dedicato, <strong>separato</strong> dalle pagine 1-2-3 (che restano legate solo a saldi banche/investimenti/debiti): puoi misurare gli ETF anche in date diverse da quelle di pagina 1 senza effetti sulle altre pagine. Monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente da questa sezione. <strong>Il campo "Versato" contiene il totale versato nell'ETF</strong>: per ogni nuova misurazione viene precompilato con l'ultimo totale registrato + la quota mensile (PAC) dell'ETF, e il valore salvato <strong>sostituisce</strong> quello precedente. Puoi modificarlo se hai versato importi diversi.</p>
             <div style="max-width:250px;">
                 <label>Data Misurazione</label>
-                <input type="date" id="input-data-etf">
+                <input type="date" id="input-data-etf" onchange="aggiornaDefaultVersati()">
             </div>
             <div class="mt-15" id="form-fields-etf"></div>
             <div class="flex-gap mt-15">
@@ -469,7 +469,7 @@
                         <tr>
                             <th>Data</th>
                             <th>Valore Tot. ETF</th>
-                            <th>Versato Tot. (PAC)</th>
+                            <th>Versato Totale (€)</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>

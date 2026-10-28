@@ -1,5 +1,9 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.22';
+const VERSIONE_APP = '1.6.25';
+
+// Chiave del flag di migrazione "Versato = totale" (v1.6.24): impedisce di rieseguire
+// la conversione mese → totale cumulato sui dati già aggiornati.
+const CHIAVE_MIGRAZIONE_VERSATO_TOTALE = 'pfdMigrazioneVersatoTotale';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -127,6 +131,25 @@ function normalizzaConfigurazione() {
         delete m.etfVersamenti;
     });
     if (mesiMigrare.length > 0) dbRadice.misurazioniEtf.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+    // Migrazione (v1.6.24): il campo "Versato" di pagina 5 diventa il TOTALE versato
+    // nell'ETF (prima era il versamento del singolo mese e pagina 4 sommava i mesi).
+    // Il flag in localStorage evita di rieseguire la conversione a ogni avvio; la somma
+    // mese per mese produce gli stessi totali finora mostrati in pagina 4.
+    if (localStorage.getItem(CHIAVE_MIGRAZIONE_VERSATO_TOTALE) !== '1') {
+        const misure = [...(dbRadice.misurazioniEtf || [])].sort((a, b) => new Date(a.data) - new Date(b.data));
+        const progressivi = {};
+        misure.forEach(m => {
+            if (!m.etfVersamenti) return;
+            Object.keys(m.etfVersamenti).forEach(id => {
+                const valore = parseFloat(m.etfVersamenti[id]) || 0;
+                progressivi[id] = Math.round(((progressivi[id] || 0) + valore) * 100) / 100;
+                m.etfVersamenti[id] = progressivi[id];
+            });
+        });
+        localStorage.setItem(CHIAVE_MIGRAZIONE_VERSATO_TOTALE, '1');
+        salvaNelLocalStorage();
+    }
 
     // Rimuove da storicoMesi i mesi rimasti senza alcun dato di pagina 1
     // (es. i "mesi" creati in passato dalla sola pagina 5).

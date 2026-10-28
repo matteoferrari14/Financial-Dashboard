@@ -307,17 +307,21 @@ function calcolaRibilanciamento() {
 
 // ---------- Performance ETF: rendimento al netto del PAC ----------
 
-// Serie mensile cumulativa di un ETF: { data, valore (null se non misurato), versato (cumulato) }
+// Serie per la performance di un ETF: { data, valore (null se non misurato), versato (TOTALE) }.
+// Da v1.6.24 "Versato" in pagina 5 è il totale cumulativo versato nell'ETF: la serie NON
+// somma i mesi, riporta il totale dell'ultima misurazione (propagandolo nei mesi in cui il
+// campo non è stato compilato).
 function versamentiCumulatiETF(etfId) {
     const mesi = [...(dbRadice.misurazioniEtf || [])].sort((a, b) => new Date(a.data) - new Date(b.data));
     const serie = [];
-    let cumulato = 0;
+    let totaleVersato = 0;
     mesi.forEach(m => {
-        cumulato += (m.etfVersamenti && m.etfVersamenti[etfId]) ? m.etfVersamenti[etfId] : 0;
+        const versatoMese = (m.etfVersamenti && m.etfVersamenti[etfId] !== undefined) ? parseFloat(m.etfVersamenti[etfId]) : NaN;
+        if (!isNaN(versatoMese)) totaleVersato = versatoMese;
         serie.push({
             data: m.data,
             valore: (m.etfValori && m.etfValori[etfId] !== undefined) ? m.etfValori[etfId] : null,
-            versato: cumulato
+            versato: totaleVersato
         });
     });
     return serie;
