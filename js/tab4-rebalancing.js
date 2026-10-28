@@ -11,6 +11,8 @@ let chartGeoBreakdownInstance = null;
 let chartGeoCountriesInstance = null;
 let chartEtfGeoTortaInstance = null;
 let chartPerformanceAssetsInstance = null;
+let chartPesoTargetPieInstance = null;
+let chartPesoAttualePieInstance = null;
 let popupChartInstance = null;
 let popupEtfId = null;
 let chartPerformanceEtfInstance = null;
@@ -232,6 +234,7 @@ function renderizzaRebalancingTab() {
 
     renderizzaGraficoGeografico(attivi);
     renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget);
+    renderizzaGraficiTortePesi(attivi, valori, totaleInvestito, pesiTarget);
     renderizzaPerformanceETF();
 }
 
@@ -497,6 +500,91 @@ function renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget) 
             },
             plugins: { legend: { labels: { color: '#f8fafc' } } }
         }
+    });
+}
+
+// ---------- Torte di ripartizione del portafoglio: peso target vs peso attuale ----------
+// Ogni ETF ha lo stesso colore nei due grafici (indice nella lista degli attivi), così il
+// confronto è immediato. Se non esiste ancora una misurazione (totale 0) la torta del peso
+// attuale lo dice esplicitamente, senza disegnare fette fittizie.
+const COLORI_TORTE_PESI = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6',
+    '#f97316', '#06b6d4', '#ef4444', '#84cc16', '#a855f7', '#eab308',
+    '#0ea5e9', '#22c55e', '#d946ef', '#fb7185', '#facc15', '#64748b'];
+
+function coloreTortaPesi(index) {
+    return COLORI_TORTE_PESI[index % COLORI_TORTE_PESI.length];
+}
+
+// Le torte sono popolate in % (peso target) oppure in € (peso attuale): il tooltip deve
+// sempre mostrare la QUOTA PERCENTUALE, quindi si rapporta la fetta al totale del dataset
+// invece di usare il valore grezzo (che nell'attuale sarebbe l'importo in euro).
+function percentualeFetta(c) {
+    const dati = (c.dataset && Array.isArray(c.dataset.data)) ? c.dataset.data
+        : ((c.chart && c.chart.data && c.chart.data.datasets && c.chart.data.datasets[0])
+            ? c.chart.data.datasets[0].data : []);
+    const totale = dati.reduce((a, v) => a + (Number(v) || 0), 0);
+    return totale > 0 ? (Number(c.parsed) / totale) * 100 : 0;
+}
+
+function opzioniTortaPesi(senzaDati) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: '#f8fafc', boxWidth: 12, font: { size: 11 } } },
+            tooltip: {
+                callbacks: {
+                    label: (c) => senzaDati ? c.label : `${c.label}: ${percentualeFetta(c).toFixed(1)} %`
+                }
+            }
+        }
+    };
+}
+
+function renderizzaGraficiTortePesi(attivi, valori, totaleInvestito, pesiTarget) {
+    const canvasTarget = document.getElementById('chartPesoTargetPie');
+    const canvasAttuale = document.getElementById('chartPesoAttualePie');
+    if (!canvasTarget || !canvasAttuale) return;
+    if (chartPesoTargetPieInstance) chartPesoTargetPieInstance.destroy();
+    if (chartPesoAttualePieInstance) chartPesoAttualePieInstance.destroy();
+
+    // Etichette/colori condivisi: la fetta dello stesso ETF ha lo stesso colore in entrambe le torte.
+    const etichette = attivi.map(e => e.nome);
+    const colori = attivi.map((e, i) => coloreTortaPesi(i));
+
+    // Torta del PESO TARGET: deriva dalle quote mensili, quindi esiste anche senza misurazioni.
+    const senzaDatiTarget = etichette.length === 0;
+    chartPesoTargetPieInstance = new Chart(canvasTarget.getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: senzaDatiTarget ? ['Nessun ETF attivo configurato'] : etichette,
+            datasets: [{
+                data: senzaDatiTarget ? [1] : attivi.map(e => pesiTarget[e.id] || 0),
+                backgroundColor: senzaDatiTarget ? ['#334155'] : colori,
+                borderColor: '#1e293b',
+                borderWidth: 1
+            }]
+        },
+        options: opzioniTortaPesi(senzaDatiTarget)
+    });
+
+    // Torta del PESO ATTUALE: richiede l'ultima misurazione della pagina 5.
+    const senzaDatiAttuale = etichette.length === 0 || totaleInvestito <= 0;
+    const messaggioAttuale = etichette.length === 0
+        ? 'Nessun ETF attivo configurato'
+        : 'Nessuna misurazione — inserisci i valori nella pagina 5';
+    chartPesoAttualePieInstance = new Chart(canvasAttuale.getContext('2d'), {
+        type: 'pie',
+        data: {
+            labels: senzaDatiAttuale ? [messaggioAttuale] : etichette,
+            datasets: [{
+                data: senzaDatiAttuale ? [1] : attivi.map(e => valori[e.id] || 0),
+                backgroundColor: senzaDatiAttuale ? ['#334155'] : colori,
+                borderColor: '#1e293b',
+                borderWidth: 1
+            }]
+        },
+        options: opzioniTortaPesi(senzaDatiAttuale)
     });
 }
 

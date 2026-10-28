@@ -357,6 +357,19 @@
                     <tbody id="table-assets-body"></tbody>
                 </table>
             </div>
+            <!-- Torte di ripartizione del portafoglio ETF: target (quote mensili) vs attuale (ultima misurazione) -->
+            <div class="grid-2">
+                <div>
+                    <h3>Peso Target per ETF (%)</h3>
+                    <div class="chart-container"><canvas id="chartPesoTargetPie"></canvas></div>
+                    <p class="text-muted" style="font-size:0.8rem;">Ripartizione attesa, derivata dalle quote di versamento mensili degli ETF attivi.</p>
+                </div>
+                <div>
+                    <h3>Peso Attuale per ETF (%)</h3>
+                    <div class="chart-container"><canvas id="chartPesoAttualePie"></canvas></div>
+                    <p class="text-muted" style="font-size:0.8rem;">Ripartizione effettiva, calcolata sull'ultima misurazione della pagina 5. La fetta di ogni ETF ha lo stesso colore nelle due torte.</p>
+                </div>
+            </div>
         </div>
 
         <div class="grid-2">
