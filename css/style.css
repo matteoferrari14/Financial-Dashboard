@@ -418,7 +418,7 @@ tr:hover {
     font-weight: 400;
 }
 
-/* Riga doppio input ETF (Valore + Versato) nel form mensile del Tab 1 */
+/* Riga doppio input ETF (Valore + Performance) nel form della pagina 5 */
 .etf-form-row {
     display: flex;
     gap: 8px;
@@ -426,6 +426,23 @@ tr:hover {
 .etf-form-row input {
     flex: 1;
     min-width: 0;
+}
+
+/* Titoli di colonna sopra i due input ETF della pagina 5 */
+.etf-form-header {
+    display: flex;
+    gap: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 6px;
+}
+.etf-form-header span {
+    flex: 1;
+    min-width: 0;
+    padding-left: 12px;
 }
 
 /* BANNER LIQUIDITÀ (Tab 2) */

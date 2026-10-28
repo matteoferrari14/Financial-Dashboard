@@ -367,7 +367,7 @@
                 <div>
                     <h3>Peso Attuale per ETF (%)</h3>
                     <div class="chart-container"><canvas id="chartPesoAttualePie"></canvas></div>
-                    <p class="text-muted" style="font-size:0.8rem;">Ripartizione effettiva, calcolata sull'ultima misurazione della pagina 5. La fetta di ogni ETF ha lo stesso colore nelle due torte.</p>
+                    <p class="text-muted" style="font-size:0.8rem;">Ripartizione effettiva, calcolata sull'ultima misurazione della pagina 5. La fetta di ogni ETF ha lo stesso colore nelle due torte. Il tooltip mostra la percentuale attuale e lo scostamento in punti percentuali rispetto al target.</p>
                 </div>
             </div>
         </div>
@@ -384,15 +384,10 @@
                 <p class="text-muted" style="font-size:0.8rem;">Stessa ponderazione, con i singoli paesi. Le quote sotto lo 0,5% sono accorpate in "Altri paesi".</p>
             </div>
         </div>
-        <div class="grid-2">
-            <div class="card">
-                <h2>Peso Target vs Attuale per Asset (%)</h2>
-                <div class="chart-container"><canvas id="chartPerformanceAssets"></canvas></div>
-            </div>
-        </div>
+        
         <div class="card">
             <h2>Performance ETF — Rendimento al netto del PAC</h2>
-            <p class="text-muted" style="font-size:0.8rem;">Il rendimento è la differenza tra valore di mercato e capitale complessivamente versato: così si scorpora l'effetto del piano di accumulo. Il capitale versato è il campo "Versato" della pagina 5, che contiene il <strong>totale</strong> versato nell'ETF (nessuna somma tra misurazioni).</p>
+            <p class="text-muted" style="font-size:0.8rem;">Il <strong>Rendimento (€)</strong> è la <strong>Performance</strong> inserita nella pagina 5 (segno + guadagno, segno - perdita). Il capitale versato è <strong>ricavato</strong> come Valore − Performance: così si scorpora automaticamente l'effetto del piano di accumulo. Il <strong>Rendimento (%)</strong> è rapportato al capitale versato.</p>
             <div style="overflow-x: auto;">
                 <table>
                     <thead>
@@ -443,17 +438,17 @@
         </div>
     </div>
 
-    <!-- TAB 5: INSERIMENTI ETF (misurazioni mensili valore + versato PAC) -->
+    <!-- TAB 5: INSERIMENTI ETF (misurazioni valore + performance) -->
     <div id="tab-etf-inserimenti" class="tab-content">
         <div class="card">
             <div class="flex-between">
                 <h2>Inserimento Misurazione ETF</h2>
                 <button class="btn-secondary w-auto" onclick="copiaUltimaMisurazioneETF()">📋 Copia da ultima misurazione</button>
             </div>
-            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e il <strong>Versato</strong> (PAC) di ogni ETF. Le misurazioni ETF vivono in un archivio dedicato, <strong>separato</strong> dalle pagine 1-2-3 (che restano legate solo a saldi banche/investimenti/debiti): puoi misurare gli ETF anche in date diverse da quelle di pagina 1 senza effetti sulle altre pagine. Monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente da questa sezione. <strong>Il campo "Versato" contiene il totale versato nell'ETF</strong>: per ogni nuova misurazione viene precompilato con l'ultimo totale registrato + la quota mensile (PAC) dell'ETF, e il valore salvato <strong>sostituisce</strong> quello precedente. Puoi modificarlo se hai versato importi diversi.</p>
+            <p class="text-muted" style="font-size:0.8rem;">Registra qui il <strong>Valore</strong> di mercato e la <strong>Performance</strong> in € di ogni ETF (segno <strong>+</strong> per il guadagno, segno <strong>−</strong> per la perdita). Le misurazioni ETF vivono in un archivio dedicato, <strong>separato</strong> dalle pagine 1-2-3 (che restano legate solo a saldi banche/investimenti/debiti): puoi misurare gli ETF anche in date diverse da quelle di pagina 1 senza effetti sulle altre pagine. Monitoraggio, ribilanciamento e performance di pagina 4 si aggiornano automaticamente da questa sezione. <strong>Il capitale versato non si inserisce più</strong>: viene ricavato automaticamente come <strong>Valore − Performance</strong> (es. Valore 100, Performance 20 → versato 80; Valore 100, Performance −20 → versato 120).</p>
             <div style="max-width:250px;">
                 <label>Data Misurazione</label>
-                <input type="date" id="input-data-etf" onchange="aggiornaDefaultVersati()">
+                <input type="date" id="input-data-etf" onchange="aggiornaDefaultPerformance()">
             </div>
             <div class="mt-15" id="form-fields-etf"></div>
             <div class="flex-gap mt-15">
@@ -469,7 +464,8 @@
                         <tr>
                             <th>Data</th>
                             <th>Valore Tot. ETF</th>
-                            <th>Versato Totale (€)</th>
+                            <th>Performance Tot. (€)</th>
+                            <th>Versato (derivato)</th>
                             <th>Azioni</th>
                         </tr>
                     </thead>

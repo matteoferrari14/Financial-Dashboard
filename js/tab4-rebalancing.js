@@ -10,7 +10,6 @@
 let chartGeoBreakdownInstance = null;
 let chartGeoCountriesInstance = null;
 let chartEtfGeoTortaInstance = null;
-let chartPerformanceAssetsInstance = null;
 let chartPesoTargetPieInstance = null;
 let chartPesoAttualePieInstance = null;
 let popupChartInstance = null;
@@ -233,7 +232,6 @@ function renderizzaRebalancingTab() {
     tbody.appendChild(trTot);
 
     renderizzaGraficoGeografico(attivi);
-    renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget);
     renderizzaGraficiTortePesi(attivi, valori, totaleInvestito, pesiTarget);
     renderizzaPerformanceETF();
 }
@@ -307,10 +305,10 @@ function calcolaRibilanciamento() {
 
 // ---------- Performance ETF: rendimento al netto del PAC ----------
 
-// Serie per la performance di un ETF: { data, valore (null se non misurato), versato (TOTALE) }.
-// Da v1.6.24 "Versato" in pagina 5 è il totale cumulativo versato nell'ETF: la serie NON
-// somma i mesi, riporta il totale dell'ultima misurazione (propagandolo nei mesi in cui il
-// campo non è stato compilato).
+// Serie per la performance di un ETF: { data, valore (null se non misurato), versato (derivato) }.
+// Da v1.7.0 la pagina 5 richiede la Performance in € e il versato deriva da Valore - Performance
+// (memorizzato in etfVersamenti). La serie riporta il versato dell'ultima misurazione,
+// propagandolo nei mesi in cui il campo non è stato compilato.
 function versamentiCumulatiETF(etfId) {
     const mesi = [...(dbRadice.misurazioniEtf || [])].sort((a, b) => new Date(a.data) - new Date(b.data));
     const serie = [];
@@ -478,35 +476,6 @@ function renderizzaGraficoPerformanceETF(etfId, dati) {
     });
 }
 
-function renderizzaGraficoQuotaPac(attivi, valori, totaleInvestito, pesiTarget) {
-    const ctx = document.getElementById('chartPerformanceAssets').getContext('2d');
-    if (chartPerformanceAssetsInstance) chartPerformanceAssetsInstance.destroy();
-
-    const labels = attivi.map(e => e.nome);
-    const pesoTargetData = attivi.map(e => pesiTarget[e.id] || 0);
-    const pesoAttualeData = attivi.map(e => totaleInvestito > 0 ? ((valori[e.id] || 0) / totaleInvestito) * 100 : 0);
-
-    chartPerformanceAssetsInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                { label: 'Peso Target (%)', data: pesoTargetData, backgroundColor: '#3b82f6' },
-                { label: 'Peso Attuale (%)', data: pesoAttualeData, backgroundColor: '#10b981' }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, max: 100 }
-            },
-            plugins: { legend: { labels: { color: '#f8fafc' } } }
-        }
-    });
-}
-
 // ---------- Torte di ripartizione del portafoglio: peso target vs peso attuale ----------
 // Ogni ETF ha lo stesso colore nei due grafici (indice nella lista degli attivi), così il
 // confronto è immediato. Se non esiste ancora una misurazione (totale 0) la torta del peso
@@ -588,7 +557,28 @@ function renderizzaGraficiTortePesi(attivi, valori, totaleInvestito, pesiTarget)
                 borderWidth: 1
             }]
         },
-        options: opzioniTortaPesi(senzaDatiAttuale)
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#f8fafc', boxWidth: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: (c) => {
+                            if (senzaDatiAttuale) return c.label;
+                            const idx = c.dataIndex;
+                            const etf = attivi[idx];
+                            if (!etf) return c.label;
+                            const pesoAttualePct = totaleInvestito > 0 ? ((valori[etf.id] || 0) / totaleInvestito) * 100 : 0;
+                            const pesoTargetPct = pesiTarget[etf.id] || 0;
+                            const diff = pesoAttualePct - pesoTargetPct;
+                            const segno = diff >= 0 ? '+' : '';
+                            return `${c.label}: ${pesoAttualePct.toFixed(1)} % (${segno}${diff.toFixed(1)}%)`;
+                        }
+                    }
+                }
+            }
+        }
     });
 }
 

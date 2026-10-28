@@ -1,9 +1,10 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.25';
+const VERSIONE_APP = '1.6.30';
 
-// Chiave del flag di migrazione "Versato = totale" (v1.6.24): impedisce di rieseguire
-// la conversione mese → totale cumulato sui dati già aggiornati.
+// Chiave dei flag di migrazione com'era: evitano di rieseguire conversioni sui dati
+// già aggiornati a ogni avvio.
 const CHIAVE_MIGRAZIONE_VERSATO_TOTALE = 'pfdMigrazioneVersatoTotale';
+const CHIAVE_MIGRAZIONE_PERFORMANCE = 'pfdMigrazionePerformance';
 
 let dbRadice = {
     configurazioneTarget: {
@@ -148,6 +149,23 @@ function normalizzaConfigurazione() {
             });
         });
         localStorage.setItem(CHIAVE_MIGRAZIONE_VERSATO_TOTALE, '1');
+        salvaNelLocalStorage();
+    }
+
+    // Migrazione (v1.7.0): la pagina 5 ora richiede la Performance in € come input e il
+    // versato deriva da Valore - Performance. Per i dati salvati con il vecchio campo
+    // "Versato" si ricava la performance retroattiva (value - versato) e la si memorizza,
+    // così la modifica di una vecchia misurazione mostra l'importo coerente.
+    if (localStorage.getItem(CHIAVE_MIGRAZIONE_PERFORMANCE) !== '1') {
+        (dbRadice.misurazioniEtf || []).forEach(m => {
+            if (!m.etfPerformance) m.etfPerformance = {};
+            Object.keys(m.etfVersamenti || {}).forEach(id => {
+                if (m.etfPerformance[id] === undefined && m.etfValori && m.etfValori[id] !== undefined) {
+                    m.etfPerformance[id] = Math.round(((+m.etfValori[id] || 0) - (+m.etfVersamenti[id] || 0)) * 100) / 100;
+                }
+            });
+        });
+        localStorage.setItem(CHIAVE_MIGRAZIONE_PERFORMANCE, '1');
         salvaNelLocalStorage();
     }
 
