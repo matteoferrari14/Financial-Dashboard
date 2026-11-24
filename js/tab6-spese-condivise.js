@@ -332,3 +332,73 @@ function renderizzaSpeseCondivise() {
         `;
     }
 }
+
+// ========================================================
+// IMPORT / EXPORT PARZIALE (ESCLUSIVO PER LA PAGINA 6)
+// ========================================================
+
+function esportaSpeseCondivise() {
+    assicuraDatiSpeseCondivise();
+    const exportData = {
+        tipo: 'PFD_SPESE_CONDIVISE',
+        versione: typeof VERSIONE_APP !== 'undefined' ? VERSIONE_APP : '1.7.1',
+        dataEsportazione: new Date().toISOString(),
+        speseCondivise: dbRadice.speseCondivise
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 4)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pfd-spese-condivise-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function importaSpeseCondivise(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let fileContent = e.target.result.trim();
+            const primaGraffa = fileContent.indexOf('{');
+            const ultimaGraffa = fileContent.lastIndexOf('}');
+            if (primaGraffa !== -1 && ultimaGraffa !== -1) {
+                fileContent = fileContent.substring(primaGraffa, ultimaGraffa + 1);
+            }
+            const parsed = JSON.parse(fileContent);
+
+            // Riconoscimento: può essere un export parziale (tipo: 'PFD_SPESE_CONDIVISE' o chiave speseCondivise)
+            // oppure un backup globale da cui estrarre solo la sezione speseCondivise
+            let nuovaConfigurazione = null;
+            if (parsed.speseCondivise && Array.isArray(parsed.speseCondivise.soggetti)) {
+                nuovaConfigurazione = parsed.speseCondivise;
+            } else if (parsed.tipo === 'PFD_SPESE_CONDIVISE' && parsed.soggetti) {
+                nuovaConfigurazione = parsed;
+            }
+
+            if (!nuovaConfigurazione) {
+                alert("Il file selezionato non contiene una configurazione valida di Spese Condivise.");
+                input.value = '';
+                return;
+            }
+
+            // Sovrascrive ESCLUSIVAMENTE la sezione speseCondivise senza toccare nulla del resto di dbRadice
+            dbRadice.speseCondivise = JSON.parse(JSON.stringify(nuovaConfigurazione));
+            assicuraDatiSpeseCondivise();
+            salvaNelLocalStorage();
+            renderizzaSpeseCondivise();
+
+            alert("Configurazione Spese Condivise importata con successo! I dati patrimoniali, conti ed ETF sono rimasti inalterati.");
+        } catch(err) {
+            console.error(err);
+            alert("Errore nella lettura del file JSON: formato non valido.");
+        } finally {
+            input.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+

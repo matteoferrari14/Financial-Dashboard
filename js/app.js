@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.7.0';
+const VERSIONE_APP = '1.7.1';
 
 // Chiave dei flag di migrazione com'era: evitano di rieseguire conversioni sui dati
 // già aggiornati a ogni avvio.
@@ -184,6 +184,11 @@ function normalizzaConfigurazione() {
             return o && typeof o === 'object' && Object.keys(o).length > 0;
         });
     });
+
+    // Inizializza/normalizza i dati di pagina 6 (Spese Condivise) se assenti (es. da backup v1.6.x)
+    if (typeof assicuraDatiSpeseCondivise === 'function') {
+        assicuraDatiSpeseCondivise();
+    }
 }
 
 // Configurazione condivisa tooltip/colori per i grafici Chart.js

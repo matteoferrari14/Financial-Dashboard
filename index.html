@@ -479,8 +479,19 @@
     <!-- TAB 6: SPESE CONDIVISE -->
     <div id="tab-spese-condivise" class="tab-content">
         <div class="card">
-            <h2>Riepilogo Budget Comune</h2>
-            <div class="grid-4">
+            <div class="flex-between" style="align-items:center; flex-wrap:wrap; gap:10px;">
+                <h2>Riepilogo Budget Comune</h2>
+                <div class="flex-gap" style="align-items:center;">
+                    <button class="btn-secondary w-auto" onclick="esportaSpeseCondivise()" title="Esporta solo la configurazione di questa pagina in JSON">
+                        📤 Esporta Pagina 6 (JSON)
+                    </button>
+                    <label class="btn-primary w-auto" style="cursor:pointer; display:inline-block; margin:0;" title="Importa la configurazione di Pagina 6 senza toccare il resto del patrimonio">
+                        📥 Importa Pagina 6
+                        <input type="file" accept=".json" style="display:none;" onchange="importaSpeseCondivise(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="grid-4 mt-15">
                 <div>
                     <div class="kpi-title">Budget Fondo Comune</div>
                     <div class="kpi-value text-primary" id="kpi-condivise-budget">0,00 €</div>
