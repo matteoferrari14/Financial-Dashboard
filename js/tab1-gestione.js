@@ -373,7 +373,13 @@ function esportaFileDati() {
     const blob = new Blob([contenuto], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'dati.json'; a.click();
+    const oggi = new Date();
+    const yyyy = oggi.getFullYear();
+    const mm = String(oggi.getMonth() + 1).padStart(2, '0');
+    const dd = String(oggi.getDate()).padStart(2, '0');
+    a.href = url;
+    a.download = `${yyyy}${mm}${dd}_pfd.json`;
+    a.click();
     URL.revokeObjectURL(url);
 }
 

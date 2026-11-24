@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.7.1';
+const VERSIONE_APP = '1.7.2';
 
 // Chiave dei flag di migrazione com'era: evitano di rieseguire conversioni sui dati
 // già aggiornati a ogni avvio.
