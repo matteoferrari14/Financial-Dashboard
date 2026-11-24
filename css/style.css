@@ -553,3 +553,17 @@ tr:hover {
 .etf-modal-content .chart-container {
     min-height: 220px;
 }
+
+/* HELPER CLASS SPESE CONDIVISE */
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+.py-5 {
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+.border-b-subtle {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}

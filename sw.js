@@ -1,5 +1,5 @@
 // 1. Incrementa la versione per forzare l'aggiornamento
-const CACHE_NAME = 'pfd-cache-v1.6.30';
+const CACHE_NAME = 'pfd-cache-v1.7.0';
 
 // 2. Risorse statiche + librerie CDN per il supporto offline completo
 const urlsToCache = [
@@ -14,6 +14,7 @@ const urlsToCache = [
   './js/tab3-dettagli.js',
   './js/tab4-rebalancing.js',
   './js/tab5-etf-inserimenti.js',
+  './js/tab6-spese-condivise.js',
   'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 

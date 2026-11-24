@@ -26,6 +26,7 @@
         <button class="tab-btn" onclick="switchTab('tab-dettagli')">3. Vista Dettagliata</button>
         <button class="tab-btn" onclick="switchTab('tab-rebalancing')">4. Asset & Rebalancing</button>
         <button class="tab-btn" onclick="switchTab('tab-etf-inserimenti')">5. ETF - Inserimenti</button>
+        <button class="tab-btn" onclick="switchTab('tab-spese-condivise')">6. Spese Condivise</button>
     </div>
 
     <!-- TAB 1: GESTIONE & INSERIMENTO -->
@@ -303,7 +304,7 @@
                 <h2>Configurazione ETF in Portafoglio</h2>
                 <button class="btn-secondary w-auto" onclick="sincronizzaTuttiETF()">🔄 Sincronizza tutti (online)</button>
             </div>
-            <p class="text-muted" style="font-size:0.85rem;">Inserisci una volta per tutte gli ETF (nome + ISIN + quota di versamento mensile in €). Il codice ISIN identifica lo strumento: da lì l'app ricava da sola il simbolo di Borsa per scaricare i pesi per paese. Il peso target si ricava automaticamente dalle quote mensili (es. 50€ su 200€/mese → 25%). Il valore corrente di ogni ETF si inserisce a ogni misurazione nella pagina 5 (ETF - Inserimenti); qui si monitora lo scostamento dall'atteso. Un ETF può essere escluso dalla valutazione col toggle Attivo/Inattivo (come le spese di pagina 1).</p>
+            <p class="text-muted" style="font-size:0.85rem;">Inserisci i dati dei tuoi ETF (nome arbitrario + ISIN + quota di versamento mensile in €). Il codice ISIN identifica lo strumento: da lì l'app ricava da sola il simbolo di Borsa per scaricare i pesi per paese. Il peso target è ricavato dalle quote mensili. Un ETF può essere escluso dalla valutazione col toggle Attivo/Inattivo.</p>
 
             <div class="grid-2">
                 <div>
@@ -323,8 +324,8 @@
                     </div>
                 </div>
                 <div>
-                    <p class="text-muted" style="font-size:0.8rem; margin-top:0;">La composizione geografica di ogni ETF viene letta <strong>gratuitamente</strong> dal profilo pubblico su justETF (nessuna chiave API, nessun simbolo di Borsa da inserire): basta l'ISIN. Clicca <strong>🔄 Sincronizza tutti</strong> per aggiornare i pesi per paese di tutti gli ETF in una volta.</p>
-                    <p class="text-muted" style="font-size:0.75rem;">Nota: justETF mostra i primi quattro paesi di ciascun ETF più una voce "Other" che accorpa tutti gli altri, quindi il grafico geografico avrà cinque voci per ETF.</p>
+                    <p class="text-muted" style="font-size:0.8rem; margin-top:0;">La composizione geografica viene letta dal profilo pubblico su justETF.<br>Aggiorna con <strong>🔄 Sincronizza tutti</strong>.</p>
+                    <p class="text-muted" style="font-size:0.7rem;"><strong>Nota:</strong> "Other" accorpa tutti i paesi oltre al 4°.</p>
                 </div>
             </div>
         </div>
@@ -475,6 +476,71 @@
         </div>
     </div>
 
+    <!-- TAB 6: SPESE CONDIVISE -->
+    <div id="tab-spese-condivise" class="tab-content">
+        <div class="card">
+            <h2>Riepilogo Budget Comune</h2>
+            <div class="grid-4">
+                <div>
+                    <div class="kpi-title">Budget Fondo Comune</div>
+                    <div class="kpi-value text-primary" id="kpi-condivise-budget">0,00 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Spese Autonome Totali</div>
+                    <div class="kpi-value text-warning" id="kpi-condivise-autonome">0,00 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Fabbisogno Totale</div>
+                    <div class="kpi-value text-danger" id="kpi-condivise-fabbisogno">0,00 €</div>
+                </div>
+                <div>
+                    <div class="kpi-title">Reddito Medio Totale</div>
+                    <div class="kpi-value text-success" id="kpi-condivise-reddito-tot">0,00 €</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex-between">
+                <h2>1. Impostazione Budget e Soggetti</h2>
+                <button class="btn-primary w-auto" onclick="aggiungiSoggettoCondiviso()">+ Aggiungi Soggetto</button>
+            </div>
+            <p class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">
+                Imposta il budget mensile da raccogliere sul conto comune e inserisci per ciascun soggetto lo stipendio netto mensile, il numero di mensilità (per calcolare il reddito medio ponderato su 12 mesi) e le eventuali spese fisse/ricorrenti per la casa già sostenute autonomamente (es. bolletta telefono, assicurazione casa/auto comune).
+            </p>
+            <div style="max-width:300px; margin-bottom:20px;">
+                <label><strong>Budget Mensile Conto Comune (€):</strong></label>
+                <input type="number" id="input-budget-comune" step="any" placeholder="es. 1500" onchange="aggiornaBudgetComune(this.value)">
+            </div>
+
+            <!-- Contenitore delle schede per ogni soggetto -->
+            <div id="soggetti-cards-container"></div>
+        </div>
+
+        <div class="card">
+            <h2>2. Ripartizione & Versamenti Effettivi</h2>
+            <p class="text-muted" style="font-size:0.85rem; margin-bottom:15px;">
+                La quota percentuale di ciascun soggetto è calcolata in base al suo reddito medio mensile. La spesa autonoma già sostenuta viene stornata dal versamento dovuto nel fondo comune, garantendo la copertura integrale del budget prefissato.
+            </p>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Soggetto</th>
+                            <th>Reddito Medio (€/m)</th>
+                            <th>Quota %</th>
+                            <th>Quota Spese Totale</th>
+                            <th>Spese Già Pagate</th>
+                            <th>Versamento Conto Comune</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-riepilogo-condivise-body"></tbody>
+                    <tfoot id="table-riepilogo-condivise-foot"></tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <!-- SCRIPTS MODULARI -->
@@ -484,5 +550,6 @@
 <script src="js/tab3-dettagli.js"></script>
 <script src="js/tab4-rebalancing.js"></script>
 <script src="js/tab5-etf-inserimenti.js"></script>
+<script src="js/tab6-spese-condivise.js"></script>
 </body>
 </html>

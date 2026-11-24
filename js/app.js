@@ -1,5 +1,5 @@
 // Versione applicazione (da mantenere sincronizzata con la CACHE_NAME in sw.js)
-const VERSIONE_APP = '1.6.30';
+const VERSIONE_APP = '1.7.0';
 
 // Chiave dei flag di migrazione com'era: evitano di rieseguire conversioni sui dati
 // già aggiornati a ogni avvio.
@@ -21,7 +21,14 @@ let dbRadice = {
     },
     storicoMesi: [],
     misurazioniEtf: [],
-    dettaglioAssets: []
+    dettaglioAssets: [],
+    speseCondivise: {
+        budgetComune: 1500,
+        soggetti: [
+            { id: 1, nome: 'Soggetto 1', stipendioNetto: 2000, mensilita: 12, speseAutonome: [] },
+            { id: 2, nome: 'Soggetto 2', stipendioNetto: 1000, mensilita: 12, speseAutonome: [] }
+        ]
+    }
 };
 
 window.onload = function() {
@@ -239,6 +246,8 @@ function switchTab(tabId) {
     } else if (tabId === 'tab-etf-inserimenti') {
         if (typeof renderizzaFormEtf === 'function') renderizzaFormEtf();
         if (typeof renderizzaStoricoETF === 'function') renderizzaStoricoETF();
+    } else if (tabId === 'tab-spese-condivise') {
+        if (typeof renderizzaSpeseCondivise === 'function') renderizzaSpeseCondivise();
     }
 }
 
@@ -250,4 +259,5 @@ function renderizzaTutto() {
     if (typeof renderizzaStoricoETF === 'function') renderizzaStoricoETF();
     if (typeof renderizzaVisualizzazioni === 'function') renderizzaVisualizzazioni();
     if (typeof renderizzaRebalancingTab === 'function') renderizzaRebalancingTab();
+    if (typeof renderizzaSpeseCondivise === 'function') renderizzaSpeseCondivise();
 }
